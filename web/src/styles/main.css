@@ -878,6 +878,34 @@ code {
   width: min(560px, 92vw);
 }
 
+/* M3：网络图片本地化提示条容器（编辑器顶部，工具栏之下） */
+.remote-banner-host {
+  flex: 0 0 auto;
+  padding: 0;
+  border-bottom: 1px solid var(--mwb-border, #e2e8f0);
+  background: #fffbeb;
+}
+
+/* M3：mermaid 图在预览/缩略图里的自适应（mermaid-eng 产出 div.mwb-mermaid > svg） */
+.mwb-mermaid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+.mwb-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+.mwb-mermaid-error {
+  color: #b91c1c;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-left: 3px solid #fca5a5;
+  background: #fef2f2;
+}
+
 @media (max-width: 1280px) {
   .editor-page {
     --mwb-left-w: 220px;

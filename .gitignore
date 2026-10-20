@@ -4,7 +4,9 @@ dist/
 release/
 target/
 *.pdb
-# generated frontend assets (build:marp 产物，不进 git)
+# generated frontend assets (build:mermaid / build:marp 产物，不进 git)
+web/public/mermaid.browser.js
+web/public/mermaid.browser.js.map
 web/public/marp-core.browser.js
 web/public/marp-core.browser.js.map
 web/public/katex/
@@ -15,6 +17,7 @@ spike/**/out/
 spike/**/shots/
 spike/visual/
 spike/visual-m2/
+spike/visual-m3/
 spike/outline/
 spike/**/downloads/
 # runtime

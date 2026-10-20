@@ -9,7 +9,7 @@
  * - 关闭前有改动会确认
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { loadMarpCore, sanitizeCss, sanitizeHtml } from '../marp/renderer'
+import { loadMarpCore, renderer, sanitizeCss, sanitizeHtml } from '../marp/renderer'
 import { setMarkdownTheme } from '../marp/frontmatter'
 
 const props = defineProps<{
@@ -103,7 +103,9 @@ async function runPreview(): Promise<void> {
     marp.themeSet.add(css.value)
     const md = props.markdown && props.markdown.trim() ? props.markdown : '# 主题预览\n\n## 第二页\n\n- 选项 A\n- 选项 B'
     const out = marp.render(setMarkdownTheme(md, themeName))
-    previewHtml.value = buildSrcdoc(sanitizeHtml(String(out.html)), sanitizeCss(String(out.css)))
+    // M3：主题预览也同步套用 mermaid 缓存（主预览渲染过的图表可直接显示为 SVG）
+    const previewHtmlWithMermaid = renderer.applyMermaidCacheSync(sanitizeHtml(String(out.html)))
+    previewHtml.value = buildSrcdoc(previewHtmlWithMermaid, sanitizeCss(String(out.css)))
     previewError.value = ''
     await nextTick()
     applyPreviewScale()

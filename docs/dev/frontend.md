@@ -258,3 +258,69 @@ getPageBackground(md, page) / buildImageDirective(path, modifiers)
 - 「编辑主题」实际动作 = 打开主题画廊并传 `initialEditTheme`，由 ThemeGallery 内部挂载 ThemeEditor；若主题组件未就绪则 toast 提示。
 - 主题编辑器保存后由 ThemeGallery emit `changed` → 前端刷新主题列表；若自定义主题 CSS 变化，当前 deck 需重新渲染（`refreshThemes()` 后已自动 doRender）。
 - 图片预览的 objectURL 未显式 revoke（数量小；后续可加 LRU 清理）。
+
+---
+
+## 11. M3 增量：Mermaid 图表 / 网络图片代理 / 图片原位编辑（frontend-core 集成）
+
+> 契约：[`docs/UI_CONTRACT_M3.md`](../UI_CONTRACT_M3.md) §1.3/§2.3/§3.3 ｜ 三个模块 owner：mermaid-eng（`web/src/mermaid/**`）、export-eng（`insert/remoteImages.ts`、`RemoteImagesBanner.vue`、`insert/compose.ts` 图片编辑）、desktop-packaging（`/api/proxy/image`、`/api/decks/:id/localize-images`）
+
+### 11.1 改动文件（frontend-core 范围）
+
+| 文件 | 改动 |
+| --- | --- |
+| `web/src/marp/renderer.ts` | 新增 `renderAsync(md, opts)`、`applyMermaidCacheSync(html)`、`mermaidReady`；`import.meta.glob('../mermaid/*.{ts,js,mjs}')` 懒加载 mermaid 模块（未落盘/无 mermaid 时安全跳过）；保留同步 `render()` 不变 |
+| `web/src/views/EditView.vue` | `doRender` 改 async + 自增 token 防竞态；渲染链路 sync → mermaid → assets dataURL；工具栏「◈ 图表」；RemoteImagesBanner 挂载；图片按钮光标命中已存在图片 → 编辑模式 + 原位替换；`renderForGallery` 追加 mermaid 缓存、`renderForExport` 改为「同步对象 + thenable」 |
+| `web/src/insert/EditorToolbar.vue` | 新增「◈ 图表」按钮 + `insertChart` emit；图片按钮 title 提示编辑语义 |
+| `web/src/preview/PreviewPane.vue` | 远程图片 `http(s)://` → 同源代理 URL（`proxyImageUrl`，动态 import，模块未就绪跳过）；CSP 保持 `img-src 'self' data: blob:` |
+| `web/src/integrations/optionalComponents.ts` | 新增 `RemoteImagesBannerAsync`、`loadInsertCompose`（parseImageAtLine/replaceImageAt）、`loadRemoteImages`（proxyImageUrl） |
+| `web/src/themes/ThemeEditor.vue` | 主题编辑器预览也套用 `renderer.applyMermaidCacheSync`（主预览缓存的图直接显示为 SVG） |
+| `web/src/styles/main.css` | `.remote-banner-host` 顶部条、`.mwb-mermaid` 自适应（svg max-width:100%）与 `.mwb-mermaid-error` 样式 |
+
+### 11.2 渲染链路（M3）
+
+```
+content 变化 → scheduleRender(140ms)
+doRender()（async，token 防竞态）
+  1) renderer.render()            → 立即出图（mermaid 仍为代码块；resolvedHtml 立刻更新，避免旧内容停留）
+  2) if hasMermaidMarkup(html)    → renderer.renderAsync()（懒加载 mermaid.browser.js，仅此时才加载；无图表 deck 0 请求）
+  3) resolveDeckAssetsInHtml()    → assets/x.png → dataURL（预览/缩略图共用，M2.5 链路保留）
+```
+
+- mermaid 渲染失败：mermaid-eng 模块保留原代码块 + 错误提示，`renderAsync` 内 catch 后回退同步结果，编辑器可用。
+- 画廊缩略图（同步）：`renderer.renderWithTheme` → `applyMermaidCacheSync` → `resolveDeckAssetsInHtmlSync`（缓存未命中时保留代码块，不报错）。
+- 导出：`renderForExport()` 返回对象**同时**具备同步属性（mermaid cache 版 html + assets dataURL）与 `then`（异步完整版）；export-eng 的 `ExportPanel` 已改为 `await Promise.resolve(props.render())` 取完整版，`pageSize/slideCount` 同步读取也不坏。
+
+### 11.3 网络图片（预览代理 + 一键本地化）
+
+- `PreviewPane.prepareHtml()`：① 先解析 deck 相对资产；② 调 `remoteImages.ts::proxyImageUrl(url)` 把 `<img src="http(s)://…">` 与 `background-image:url(http… )` 换成 `/api/proxy/image?url=…&token=…`（属性值里的 `&` 做 `&amp;` 转义）。同源代理不受 CSP 外链限制、仍零外网直连。
+- `RemoteImagesBanner` 挂在编辑器顶部（工具栏下、conflict 条上）：`:deck-id="deck.id"`、`:markdown="content"`；`@localized` → `content = payload.markdown` → 800ms 保存 + 重渲染 + toast「已下载 N 张网络图片到本地」。忽略状态由组件按 deckId 记 localStorage。
+- 真实服务验证需服务端 `GET /api/proxy/image`（允许 query token，仅此路由；测试私网需 `MWB_PROXY_ALLOW_PRIVATE=1`）与 `POST /api/decks/:id/localize-images`。
+
+### 11.4 图片原位编辑（M3）
+
+- 工具栏「🖼 图片」→ `editorRef.getCursorLine()` → 动态 import `insert/compose.ts` 的 `parseImageAtLine(content, line, tolerance=1)`：
+  - 命中（普通图 `![alt](path)` 或背景图 `![bg …](path)`）→ 打开 `ImageInsertDialog` 传 `:initial-image="parsed"`；对话框中所有选项预填、标题「编辑图片」、按钮「保存修改」。
+  - 未命中 → 原新建流程不变。
+- `@insert` payload 带 `edit:{line,start,end}` → 优先 `replaceImageAt(content, parsed, snippet)` 原位替换；失败回退按 `start/end` 精确 splice（保证不新增图片行），toast「图片已更新」。
+- 属性面板「更换背景图」仍走新建背景图模式（契约 §3.3 的"尽力"项）。
+
+### 11.5 M3 验收实测
+
+| 场景 | 结果 |
+| --- | --- |
+| `pnpm --dir web build` | ✅ 通过（含 mermaid 模块、RemoteImagesBanner、compose/remoteImages 等队友文件；EditView chunk ~658KB） |
+| mock（vite preview）`node web/scripts/verify-ui-m3.mjs` | ✅ 全部通过：插入 mermaid 模板 → 预览 `.mwb-mermaid svg`=1（模块懒加载 `/mermaid.browser.js`）；远程图片替换为 `/api/proxy/image?…`；RemoteImagesBanner 显示「检测到 1 张网络图片」；图片插入 → 光标回图片行 → 「编辑图片」→ 保存后原位替换（图片行数不变、属性更新）；零外网请求 |
+| 真实 release exe（`MWB_WEB_DIR=web/dist` + `MWB_PROXY_ALLOW_PRIVATE=1` + 本地假远程图服务 + Chrome 155）`verify-ui-m3.mjs --url … --token … --remote-url http://127.0.0.1:8897/remote-test.png` | ✅ **全部通过**：mermaid 预览 SVG=1；远程图替换为 `/api/proxy/image?…` 且 `naturalWidth>0`（代理实际返回图片）；RemoteImagesBanner 显示并「下载到本地」→ Markdown 写回 `assets/remote-*.png`；图片插入→光标回图片行→「编辑图片」→ 原位替换（行数不变、属性更新）；零外网请求 |
+| 回归 | ✅ `verify-ui.mjs`（M1/M2）真实 exe 全绿；Lead `scripts/visual-e2e.mjs` **13/13**（15 主题画廊/PPTX 2.8MB/无 JS 错误） |
+| 调试句柄 | `window.__mwbEditorView`（CM 完整文档）、`window.__mwbRenderer`（mermaidReady/renderAsync）供 e2e 使用 |
+| 截图/产物 | `%TEMP%\mwb-verify-m3\`（mermaid.png / image-edit.png / final.png / report.json）；调试脚本 `web/scripts/debug-mermaid.mjs` |
+
+### 11.6 M3 已知边界 / 联调阻塞
+
+- **mermaid 首次渲染 ~3-5s**（懒加载 5.25MB bundle + mermaid 初始化）；已通过"先同步出代码块再替换 SVG"避免白屏，第二次渲染命中缓存（毫秒级）。
+- mermaid 模块未落盘时：`renderAsync` 回退同步结果，预览保留代码块，不报错（build 永不因队友进度失败）。
+- 网络图片代理/本地化依赖服务端 M3 路由与 `MWB_PROXY_ALLOW_PRIVATE`（仅测试）；服务未重建前 `<img>` 显示占位（同源 401），不影响编辑。
+- 远程图片如果需要导出内联，由 ExportPanel 处理（export-eng 已实现；`renderForExport` 的 html 里仍是原 URL 或代理 URL，最终以导出面板处理为准）。
+- 图片原位编辑依赖 export-eng 的 compose 函数；文件未更新时回退为"新建图片"（不影响编辑）。
+- 预览 objectURL 仍未 revoke（M2 遗留，量小）。

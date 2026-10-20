@@ -38,6 +38,8 @@ export interface ImageSnippetOptions {
   blur?: number
   grayscale?: boolean
   alt?: string
+  /** 原图里本 UI 不认识的修饰符（如 vertical/brightness:…），编辑保存时原样保留 */
+  extraModifiers?: string[]
 }
 
 export interface TableSnippetOptions {
@@ -117,8 +119,13 @@ export function buildImageSnippet(opts: ImageSnippetOptions): string {
   if (!path) return ''
   const mode: ImageMode = opts.mode === 'background' ? 'background' : 'image'
   const filters = filterModifiers(opts)
+  const extras = (opts.extraModifiers || []).filter(Boolean)
+  const filtersWithExtras = extras.length ? [...filters, ...extras] : filters
+  // alt 文本（普通图片）：保留用户原有 alt（背景图的 alt 是修饰符，不写 alt）
+  const altText = mode === 'image' ? String(opts.alt || '').trim() : ''
+  const altPrefix = altText ? `${altText} ` : ''
   if (mode === 'background') {
-    const mods = ['bg', ...backgroundModifiers(opts), ...filters]
+    const mods = ['bg', ...backgroundModifiers(opts), ...filtersWithExtras]
     return `![${mods.join(' ')}](${mdDest(path)})`
   }
   const mods: string[] = []
@@ -128,8 +135,8 @@ export function buildImageSnippet(opts: ImageSnippetOptions): string {
     const px = Math.max(1, Math.round((clamp(percent, 1, 200) / 100) * slideWidth))
     mods.push(`w:${px}px`)
   }
-  mods.push(...filters)
-  return `![${mods.join(' ')}](${mdDest(path)})`
+  mods.push(...filtersWithExtras)
+  return `![${altPrefix}${mods.join(' ')}](${mdDest(path)})`
 }
 
 // ---------------------------------------------------------------------------
@@ -360,4 +367,300 @@ export function pageAtLine(markdown: string, line1: number): number {
 /** 页首行号（1-based）；父组件「插入到页首」时可用 editor.setCursor(此值) + insertText */
 export function pageStartLine(markdown: string, page: number): number {
   return pickPage(splitPages(markdown), page).startLine
+}
+
+// ---------------------------------------------------------------------------
+// 图片语法解析 / 原位替换（M3）
+// ---------------------------------------------------------------------------
+
+/** 解析出的一处图片语法（普通图片或背景图） */
+export interface ParsedImage {
+  /** 1-based 行号 */
+  line: number
+  /** Markdown 字符 range（图片语法本体，不含行尾换行；替换时保留前后文） */
+  start: number
+  end: number
+  raw: string
+  kind: ImageMode
+  alt: string
+  path: string
+  /** 原始修饰符 token（如 ['bg','left:40%','opacity:.5']） */
+  modifiers: string[]
+  bgLayout: BgLayout
+  bgRatio: number
+  fit: BgFit
+  widthPx: number | null
+  widthPercent: number | null
+  /** 0–1（opacity 修饰符）；无则 null */
+  opacity: number | null
+  blur: number
+  grayscale: boolean
+  /** 本 UI 不认识的修饰符（编辑保存时透传保留） */
+  extraModifiers: string[]
+}
+
+interface ScanLine {
+  line: number
+  start: number
+  end: number
+  text: string
+  isFence: boolean
+  insideFence: boolean
+}
+
+/** 逐行扫描（含代码围栏状态）；行 range 不含 \n，end 为 \n 位置或文本末 */
+function scanLinesDetailed(markdown: string): ScanLine[] {
+  const md = String(markdown ?? '')
+  const out: ScanLine[] = []
+  let start = 0
+  let line = 1
+  let inFence = false
+  for (;;) {
+    const nl = md.indexOf('\n', start)
+    const rawEnd = nl === -1 ? md.length : nl
+    const text = md.slice(start, rawEnd).replace(/\r$/, '')
+    const isFence = /^[ \t]*(```|~~~)/.test(text)
+    out.push({ line, start, end: rawEnd, text, isFence, insideFence: inFence })
+    if (isFence) inFence = !inFence
+    if (nl === -1) break
+    start = nl + 1
+    line++
+  }
+  return out
+}
+
+/** 匹配 ![alt](dest) 语法（dest 支持 <…> 包裹与可选 title） */
+const IMAGE_TOKEN_RE = /!\[([^\]\n]*)\]\(\s*(<[^>\n]*>|[^)\s]+)(?:\s+(?:"[^"]*"|'[^']*'))?\s*\)/g
+
+interface RawImageToken {
+  raw: string
+  alt: string
+  path: string
+  offset: number
+}
+
+function matchImageTokensInLine(text: string): RawImageToken[] {
+  const out: RawImageToken[] = []
+  IMAGE_TOKEN_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = IMAGE_TOKEN_RE.exec(text))) {
+    let dest = m[2] || ''
+    if (dest.startsWith('<') && dest.endsWith('>')) dest = dest.slice(1, -1)
+    out.push({ raw: m[0], alt: m[1] || '', path: dest, offset: m.index })
+  }
+  return out
+}
+
+const MODIFIER_RE = {
+  bg: /^bg$/,
+  layout: /^(left|right)(?::\s*(\d+(?:\.\d+)?)%)?$/,
+  fit: /^(cover|contain|fit)$/,
+  opacity: /^opacity:\s*(\d*\.?\d+)(%?)$/,
+  width: /^(?:w|width):\s*(\d+(?:\.\d+)?)(px|%)?$/,
+  height: /^(?:h|height):/,
+  blur: /^blur:\s*(\d*\.?\d+)(px)?$/,
+  grayscale: /^grayscale$/,
+  percent: /^(\d+(?:\.\d+)?)%$/,
+  /// 其它 Marp 滤镜/方向修饰符（保留透传，避免编辑保存丢信息）
+  otherFilter: /^(brightness|contrast|drop-shadow|hue-rotate|invert|saturate|sepia|vertical|horizontal):?/i,
+}
+
+interface ParsedModifiers {
+  modifiers: string[]
+  kind: ImageMode
+  alt: string
+  bgLayout: BgLayout
+  bgRatio: number
+  fit: BgFit
+  widthPx: number | null
+  widthPercent: number | null
+  opacity: number | null
+  blur: number
+  grayscale: boolean
+  extraModifiers: string[]
+}
+
+/** 解析 alt 里的 Marp 图片修饰符；无法识别的词作为 alt 文本 */
+function parseAltModifiers(altRaw: string): ParsedModifiers {
+  const tokens = String(altRaw || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  const result: ParsedModifiers = {
+    modifiers: [],
+    kind: 'image',
+    alt: '',
+    bgLayout: 'full',
+    bgRatio: 40,
+    fit: 'cover',
+    widthPx: null,
+    widthPercent: null,
+    opacity: null,
+    blur: 0,
+    grayscale: false,
+    extraModifiers: [],
+  }
+  const altParts: string[] = []
+  for (const token of tokens) {
+    if (MODIFIER_RE.bg.test(token)) {
+      result.kind = 'background'
+      result.modifiers.push(token)
+      continue
+    }
+    const layout = MODIFIER_RE.layout.exec(token)
+    if (layout) {
+      result.bgLayout = layout[1] as BgLayout
+      if (layout[2]) result.bgRatio = clamp(Math.round(parseFloat(layout[2])), 1, 99)
+      result.modifiers.push(token)
+      continue
+    }
+    if (MODIFIER_RE.fit.test(token)) {
+      result.fit = token as BgFit
+      result.modifiers.push(token)
+      continue
+    }
+    const opacity = MODIFIER_RE.opacity.exec(token)
+    if (opacity) {
+      let value = parseFloat(opacity[1])
+      if (opacity[2] === '%') value /= 100
+      if (Number.isFinite(value)) result.opacity = clamp(value, 0, 1)
+      result.modifiers.push(token)
+      continue
+    }
+    const width = MODIFIER_RE.width.exec(token)
+    if (width) {
+      const value = parseFloat(width[1])
+      if (width[2] === '%') result.widthPercent = clamp(value, 1, 200)
+      else result.widthPx = Math.max(1, Math.round(value))
+      result.modifiers.push(token)
+      continue
+    }
+    const blur = MODIFIER_RE.blur.exec(token)
+    if (blur) {
+      result.blur = clamp(Math.round(parseFloat(blur[1]) || 0), 0, 20)
+      result.modifiers.push(token)
+      continue
+    }
+    if (MODIFIER_RE.grayscale.test(token)) {
+      result.grayscale = true
+      result.modifiers.push(token)
+      continue
+    }
+    const percent = MODIFIER_RE.percent.exec(token)
+    if (percent) {
+      result.widthPercent = clamp(parseFloat(percent[1]), 1, 200)
+      result.modifiers.push(token)
+      continue
+    }
+    if (MODIFIER_RE.otherFilter.test(token)) {
+      result.extraModifiers.push(token)
+      result.modifiers.push(token)
+      continue
+    }
+    altParts.push(token)
+  }
+  result.alt = altParts.join(' ')
+  return result
+}
+
+function buildParsedImage(
+  md: string,
+  lineInfo: ScanLine,
+  token: RawImageToken
+): ParsedImage {
+  const start = lineInfo.start + token.offset
+  const end = start + token.raw.length
+  const mods = parseAltModifiers(token.alt)
+  return {
+    line: lineInfo.line,
+    start,
+    end,
+    raw: md.slice(start, end),
+    kind: mods.kind,
+    alt: mods.alt,
+    path: token.path,
+    modifiers: mods.modifiers,
+    bgLayout: mods.bgLayout,
+    bgRatio: mods.bgRatio,
+    fit: mods.fit,
+    widthPx: mods.widthPx,
+    widthPercent: mods.widthPercent,
+    opacity: mods.opacity,
+    blur: mods.blur,
+    grayscale: mods.grayscale,
+    extraModifiers: mods.extraModifiers,
+  }
+}
+
+/** 找出文档里所有图片语法（跳过 front-matter 之外的代码围栏内的行） */
+export function findImageTokens(markdown: string): ParsedImage[] {
+  const md = String(markdown ?? '')
+  const lines = scanLinesDetailed(md)
+  const out: ParsedImage[] = []
+  for (const info of lines) {
+    if (info.insideFence || info.isFence) continue
+    if (!info.text.includes('![')) continue
+    for (const token of matchImageTokensInLine(info.text)) out.push(buildParsedImage(md, info, token))
+  }
+  return out
+}
+
+/**
+ * 光标行附近解析图片：从目标行开始，按「本行 → 上一行 → 下一行 → 再远」顺序找，
+ * 跳过代码围栏内/围栏行。默认容差 1 行（光标在图片行上下 1 行都能命中）。
+ */
+export function parseImageAtLine(markdown: string, line1: number, tolerance = 1): ParsedImage | null {
+  const md = String(markdown ?? '')
+  if (!md) return null
+  const lines = scanLinesDetailed(md)
+  const total = lines.length
+  const target = clamp(Math.round(line1 || 1), 1, total)
+  const tol = Math.max(0, Math.floor(tolerance))
+  const deltas: number[] = [0]
+  for (let d = 1; d <= tol; d++) {
+    deltas.push(-d, d)
+  }
+  for (const delta of deltas) {
+    const lineNo = target + delta
+    if (lineNo < 1 || lineNo > total) continue
+    const info = lines[lineNo - 1]
+    if (info.insideFence || info.isFence) continue
+    if (!info.text.includes('![')) continue
+    const tokens = matchImageTokensInLine(info.text)
+    if (!tokens.length) continue
+    // 同一行多张图：优先含 bg 的背景图（编辑背景图意图更强），否则第一张
+    const bg = tokens.find((t) => parseAltModifiers(t.alt).kind === 'background')
+    return buildParsedImage(md, info, bg || tokens[0])
+  }
+  return null
+}
+
+/**
+ * 用 snippet 原位替换图片语法（保留前后文与行尾换行）。
+ * 若入参 image 的 range 已因内容变化失效，会在原行附近/全文按相同 path 重新定位。
+ */
+export function replaceImageAt(markdown: string, image: ParsedImage, snippet: string): string {
+  const md = String(markdown ?? '')
+  const block = String(snippet || '').trim()
+  if (!block || !image) return md
+  let { start, end } = image
+  const rangeValid =
+    Number.isFinite(start) &&
+    Number.isFinite(end) &&
+    start >= 0 &&
+    end <= md.length &&
+    start < end &&
+    md.slice(start, end) === image.raw
+  let target: ParsedImage | null = null
+  if (!rangeValid) {
+    target =
+      parseImageAtLine(md, image.line, 1) ||
+      findImageTokens(md).find((t) => t.path === image.path && t.raw === image.raw) ||
+      findImageTokens(md).find((t) => t.path === image.path) ||
+      null
+    if (!target) return md
+    start = target.start
+    end = target.end
+  }
+  return `${md.slice(0, start)}${block}${md.slice(end)}`
 }

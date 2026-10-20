@@ -11,6 +11,8 @@ const emit = defineEmits<{
   format: [cmd: FormatCommand]
   openImage: []
   openTable: []
+  /** M3：插入 mermaid 图表代码块 */
+  insertChart: []
   undo: []
   redo: []
 }>()
@@ -19,7 +21,7 @@ interface ToolButton {
   label: string
   title: string
   cmd?: FormatCommand
-  action?: 'openImage' | 'openTable'
+  action?: 'openImage' | 'openTable' | 'insertChart'
   className?: string
 }
 
@@ -45,13 +47,15 @@ const codeButtons: ToolButton[] = [
   { label: '分页', title: '插入分页线（---）', cmd: 'hr' },
 ]
 const insertButtons: ToolButton[] = [
-  { label: '🖼 图片', title: '插入图片 / 背景图', action: 'openImage' },
+  { label: '🖼 图片', title: '插入图片 / 背景图（光标在已有图片上时为编辑）', action: 'openImage' },
   { label: '▦ 表格', title: '插入表格', action: 'openTable' },
+  { label: '◈ 图表', title: '插入 Mermaid 图表', action: 'insertChart' },
 ]
 
 function onButton(btn: ToolButton): void {
   if (btn.action === 'openImage') emit('openImage')
   else if (btn.action === 'openTable') emit('openTable')
+  else if (btn.action === 'insertChart') emit('insertChart')
   else if (btn.cmd) emit('format', btn.cmd)
 }
 </script>

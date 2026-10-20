@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mermaid module test</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #e9edf2; }
+  #deck { width: 1280px; }
+  #deck svg[data-marpit-svg] { display: block; margin: 0 auto 24px; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+  #status {
+    position: fixed; left: 0; top: 0; z-index: 9;
+    font: 12px/1.5 Consolas, monospace; color: #d7ffe6; background: rgba(10,20,15,.9);
+    padding: 6px 10px; max-width: 700px; white-space: pre-wrap;
+  }
+  #status.fail { color: #ffd7d7; background: rgba(40,0,0,.92); }
+</style>
+</head>
+<body>
+<div id="status">running…</div>
+<div id="deck"></div>
+
+<script src="/marp-core.browser.js"></script>
+<script src="/out/mermaid-module.js"></script>
+<script>
+/* global MarpCoreBundle, MwbMermaid */
+;(function () {
+  window.__DONE__ = false
+  window.__RESULT__ = null
+  window.__ARTIFACTS__ = null
+
+  var checks = []
+  function check(name, ok, detail) {
+    checks.push({ name: name, ok: !!ok, detail: detail === undefined ? '' : String(detail).slice(0, 600) })
+  }
+  function b64EncodeUnicode(str) {
+    var bytes = new TextEncoder().encode(str)
+    var bin = ''
+    var chunk = 0x8000
+    for (var i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
+    return btoa(bin)
+  }
+  function countMermaidBlocks(html) {
+    return (html.match(/class="language-(?:mermaid|mmd)"/g) || []).length
+  }
+
+  var MD = [
+    '---',
+    'theme: default',
+    '---',
+    '',
+    '# Mermaid 图表渲染',
+    '',
+    '```mermaid',
+    'graph LR',
+    '  A[开始] --> B{检查}',
+    '  B -->|通过| C[发布上线]',
+    '  B -->|不通过| D[修复]',
+    '```',
+    '',
+    '---',
+    '',
+    '## 时序图（mmd 别名）',
+    '',
+    '```mmd',
+    'sequenceDiagram',
+    '  participant 用户',
+    '  participant 系统',
+    '  用户->>系统: 登录请求',
+    '  系统-->>用户: 返回令牌',
+    '```',
+    '',
+    '---',
+    '',
+    '## 错误块（非法语法）',
+    '',
+    '```mermaid',
+    'graph LR',
+    '  A[开始 --> B',
+    '```',
+  ].join('\n')
+
+  // 同代码出现两次：验证缓存命中后 id 仍唯一（data-mermaid-hash 相同、svg id 不同）
+  var DUP_MD = [
+    '```mermaid',
+    'graph TD',
+    '  X[同一个图] --> Y[出现两次]',
+    '```',
+    '',
+    '```mermaid',
+    'graph TD',
+    '  X[同一个图] --> Y[出现两次]',
+    '```',
+  ].join('\n')
+
+  function els(doc, sel) { return Array.prototype.slice.call(doc.querySelectorAll(sel)) }
+
+  async function run() {
+    var result = { ok: false, checks: checks, ms: {}, browser: navigator.userAgent }
+    var t0 = performance.now()
+    try {
+      var bundle = window.MarpCoreBundle && window.MarpCoreBundle.MarpCore
+      var Mwb = window.MwbMermaid
+      check('MarpCoreBundle 全局可用（真实渲染链路）', !!(bundle && bundle.Marp && bundle.browser))
+      check(
+        'mermaid 模块 5 个契约导出齐全',
+        !!Mwb &&
+          typeof Mwb.hasMermaid === 'function' &&
+          typeof Mwb.loadMermaid === 'function' &&
+          typeof Mwb.renderMermaidInHtml === 'function' &&
+          typeof Mwb.applyMermaidCacheSync === 'function' &&
+          typeof Mwb.clearMermaidCache === 'function'
+      )
+      check('hasMermaid(无图) === false', Mwb.hasMermaid('<pre><code class="language-js">const a = 1</code></pre>') === false)
+      check('hasMermaid(普通文本含 language-mermaid 字样) === false', Mwb.hasMermaid('<p>写 language-mermaid 即可</p>') === false)
+      check('hasMermaid(mermaid 代码块) === true', Mwb.hasMermaid('<pre><code class="language-mermaid">graph LR\nA-->B</code></pre>') === true)
+
+      // ---- 1. 真实 marp-core 渲染 ----
+      var marp = new bundle.Marp({ html: true, script: false, minifyCSS: true, math: { lib: 'mathjax' }, emoji: { shortcode: true, unicode: false } })
+      var tm = performance.now()
+      var res = marp.render(MD)
+      result.ms.marpRender = Math.round(performance.now() - tm)
+      check('marp 输出含 3 个 mermaid/mmd 代码块', countMermaidBlocks(res.html) === 3, countMermaidBlocks(res.html))
+      check('hasMermaid(marp html) === true', Mwb.hasMermaid(res.html) === true)
+
+      // ---- 2. 主路径：异步渲染 ----
+      var ta = performance.now()
+      var outHtml = await Mwb.renderMermaidInHtml(res.html)
+      result.ms.mermaidFirstRender = Math.round(performance.now() - ta)
+      var doc = new DOMParser().parseFromString(outHtml, 'text/html')
+      var figs = els(doc, '.mwb-mermaid')
+      var svgs = els(doc, '.mwb-mermaid svg')
+      var errs = els(doc, '.mwb-mermaid-error')
+      check('替换出 2 个 .mwb-mermaid', figs.length === 2, figs.length)
+      check('每个 .mwb-mermaid 内含 svg', svgs.length === 2, svgs.length)
+      check('1 个非法块 -> 1 个 .mwb-mermaid-error', errs.length === 1, errs.length)
+      check('错误提示为可读中文', errs.length === 1 && /图表渲染失败/.test(errs[0].textContent), errs[0] && errs[0].textContent.slice(0, 120))
+      check('错误块保留原始 mermaid 代码块', els(doc, 'code.language-mermaid').length === 1, els(doc, 'code.language-mermaid').length)
+      check('错误提示不影响其它块（2 个图正常）', figs.length === 2 && errs.length === 1)
+      check('mermaid svg 内无 script（securityLevel=strict）', els(doc, '.mwb-mermaid script').length === 0)
+      var hashes = figs.map(function (f) { return f.getAttribute('data-mermaid-hash') || '' })
+      check('data-mermaid-hash 为 40 位 sha1 hex', hashes.every(function (h) { return /^[0-9a-f]{40}$/.test(h) }), hashes.join(','))
+      var ids = svgs.map(function (s) { return s.getAttribute('id') || '' })
+      check('同页多图 svg id 唯一且非空', new Set(ids).size === ids.length && ids.every(Boolean), ids.join(','))
+      check(
+        'svg 保留 viewBox、去掉固定 px width/height',
+        svgs.every(function (s) {
+          return !!s.getAttribute('viewBox') && s.getAttribute('width') === '100%' && !s.getAttribute('height')
+        }),
+        svgs.map(function (s) { return s.getAttribute('width') + '/' + s.getAttribute('height') }).join(',')
+      )
+      check(
+        'svg 内联自适应样式（max-width + max-height 不溢出）',
+        svgs.every(function (s) {
+          var st = s.getAttribute('style') || ''
+          return /width:100%/.test(st) && /height:auto/.test(st) && /max-height:\d+px/.test(st)
+        })
+      )
+      check('SVG 内容确实来自 mermaid（含 flowchart/sequence 标记）', /\baria-roledescription="flowchart/.test(outHtml) && /aria-roledescription="sequence"/.test(outHtml) || (/class="mwb-mermaid"/.test(outHtml) && /<marker/.test(outHtml)), '')
+
+      // ---- 3. 缓存 + 同步路径 ----
+      var ts = performance.now()
+      var syncHtml = Mwb.applyMermaidCacheSync(res.html)
+      result.ms.syncApply = Math.round(performance.now() - ts)
+      var syncDoc = new DOMParser().parseFromString(syncHtml, 'text/html')
+      check('applyMermaidCacheSync 命中 2 个图（缓存已热）', els(syncDoc, '.mwb-mermaid svg').length === 2, els(syncDoc, '.mwb-mermaid svg').length)
+      check('sync 输出不产生错误块', els(syncDoc, '.mwb-mermaid-error').length === 0)
+      check('sync 输出仍保留非法块的原始代码', els(syncDoc, 'code.language-mermaid').length === 1)
+
+      // 缓存命中但 id 必须重新生成（同一份缓存不能复用旧 id）
+      var out2 = await Mwb.renderMermaidInHtml(res.html)
+      var ids2 = els(new DOMParser().parseFromString(out2, 'text/html'), '.mwb-mermaid svg').map(function (s) { return s.getAttribute('id') })
+      check('缓存命中再渲染：hash 相同但 svg id 全部重新生成', ids.every(function (id) { return ids2.indexOf(id) === -1 }), ids.join(',') + ' vs ' + ids2.join(','))
+
+      // ---- 4. 同一代码块重复出现（缓存复用不能撞 id） ----
+      var dupHtml = marp.render(DUP_MD).html
+      var dupOut = await Mwb.renderMermaidInHtml(dupHtml)
+      var dupDoc = new DOMParser().parseFromString(dupOut, 'text/html')
+      var dupSvgs = els(dupDoc, '.mwb-mermaid svg')
+      var dupIds = dupSvgs.map(function (s) { return s.getAttribute('id') })
+      var allIds = els(dupDoc, '[id]').map(function (e) { return e.id })
+      check('同代码两次出现都渲染成图', dupSvgs.length === 2, dupSvgs.length)
+      check('同代码两次出现：svg id 互不相同', new Set(dupIds).size === 2, dupIds.join(','))
+      check('同代码两次出现：整份 html 无重复 id', new Set(allIds).size === allIds.length, 'ids=' + allIds.length + ' uniq=' + new Set(allIds).size)
+
+      // ---- 5. 清缓存后的同步路径（冷缓存必须原样保留、不抛错） ----
+      var clearOk = true
+      var coldHtml = ''
+      try {
+        Mwb.clearMermaidCache()
+        coldHtml = Mwb.applyMermaidCacheSync(res.html)
+      } catch (e) {
+        clearOk = false
+      }
+      var coldDoc = new DOMParser().parseFromString(coldHtml, 'text/html')
+      check('clearMermaidCache + sync：不抛错且不替换（保留 3 个代码块）', clearOk && countMermaidBlocks(coldHtml) === 3 && els(coldDoc, '.mwb-mermaid').length === 0)
+
+      // ---- 6. 挂到页面（marp browser helper）→ 截图/溢出测量 ----
+      var deck = document.getElementById('deck')
+      var style = document.createElement('style')
+      style.textContent = res.css
+      document.head.appendChild(style)
+      deck.innerHTML = outHtml
+      try { bundle.browser(deck) } catch (e) { check('marp browser helper 执行', false, e && e.message) }
+      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r) }) })
+      var overflow = []
+      Array.prototype.forEach.call(deck.querySelectorAll('svg[data-marpit-svg]'), function (slideSvg, si) {
+        var sec = slideSvg.querySelector('foreignObject > section')
+        if (!sec) return
+        var sr = sec.getBoundingClientRect()
+        Array.prototype.forEach.call(sec.querySelectorAll('.mwb-mermaid svg'), function (m) {
+          var r = m.getBoundingClientRect()
+          overflow.push({
+            slide: si + 1,
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+            fits: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1,
+          })
+        })
+      })
+      check('所有图都在 slide 内容区内（16:9 不溢出）', overflow.length === 2 && overflow.every(function (o) { return o.fits }), JSON.stringify(overflow))
+      result.overflow = overflow
+      result.ms.total = Math.round(performance.now() - t0)
+
+      // ---- artifacts 供打印 PDF / 截图 ----
+      window.__ARTIFACTS__ = {
+        rawMarpHtml: res.html,
+        renderedHtml: outHtml,
+        css: res.css,
+        slides: Array.prototype.map.call(deck.querySelectorAll('svg[data-marpit-svg]'), function (s, i) {
+          var r = s.getBoundingClientRect()
+          return { index: i + 1, x: r.left + window.scrollX, y: r.top + window.scrollY, w: r.width, h: r.height }
+        }),
+      }
+      window.__ARTIFACTS_B64__ = { renderedHtml: b64EncodeUnicode(outHtml), rawMarpHtml: b64EncodeUnicode(res.html), css: res.css }
+      result.ok = checks.every(function (c) { return c.ok })
+    } catch (err) {
+      result.fatal = (err && (err.stack || err.message)) || String(err)
+      result.ok = false
+    }
+    window.__RESULT__ = result
+    window.__DONE__ = true
+    document.title = result.ok ? 'OK' : 'FAIL'
+    var st = document.getElementById('status')
+    st.className = result.ok ? '' : 'fail'
+    st.textContent =
+      (result.ok ? 'PASS' : 'FAIL') + ' | ' + checks.filter(function (c) { return !c.ok }).length + ' failed / ' + checks.length + ' checks\n' +
+      checks.filter(function (c) { return !c.ok }).map(function (c) { return '✗ ' + c.name + ' => ' + c.detail }).join('\n') +
+      (result.fatal ? '\nFATAL: ' + result.fatal : '')
+  }
+
+  run()
+})()
+</script>
+</body>
+</html>

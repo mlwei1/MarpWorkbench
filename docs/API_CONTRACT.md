@@ -133,8 +133,20 @@ await pptx.writeFile({ fileName })
 
 - `GET /`、`GET /edit/:id`、`GET /settings` → 返回内嵌 `index.html`（SPA fallback）。
 - `GET /assets/*`、`/marp-core.browser.js`、`/themes/*.css`、`/fonts/*` → 内嵌静态资源（带 br/gzip；`Content-Encoding`）。
+- `GET /mermaid.browser.js`（M3）→ mermaid IIFE 产物（按需由前端懒加载，非首屏）。
 - `GET /api/export/print/:token`（内部）→ **未启用**：M1 实现改为把打印页写成 `%TEMP%\MarpWorkbench\...\print.html` 用 `file://` 交给无头浏览器打印（CLI 无法携带 X-MWB-Token 头；实测 file:// 与本地 HTTP 打印质量/字节一致），外部 API 不变。
 - `POST /api/export/capture` 支持可选 `format:"png"|"jpeg"`（默认 png；PPTX 导出面板按页数自动选择：≤10 页 PNG，>10 页 JPEG q90 以控制耗时）。
+
+### 1.8 远程图片（M3）
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/proxy/image?url=<encoded>&token=<mwb-token>` | **唯一允许 query token 的路由**（iframe 内 `<img>` 无法带 header）；仅 http/https、拒绝 localhost/私有网段/*.local、≤15MB、10s 超时、≤3 跳重定向逐跳校验；缓存 `%TEMP%\MarpWorkbench\imgcache\<sha256>.<ext>`（TTL 7 天）；返回图片字节 + `Cache-Control: private,max-age=86400`。测试专用开关 `MWB_PROXY_ALLOW_PRIVATE=1`。 |
+| POST | `/api/decks/:id/localize-images` | body `{urls:string[]}`（0–50）→ 下载并存入 deck `assets/remote-<hash8>.<ext>` → `{mapping:{url:path}, failed:[{url,reason}]}`；**不修改 markdown**（路径替换由前端完成）。 |
+
+- 错误：400 `BAD_REQUEST`（非法/私有/非图片/超限）、404、502 `EXPORT_FAILED`（下载失败），均为可读中文。
+- 导出时前端会把远程图片经代理取回成 dataURL 内联（失败不阻断，结果面板提示）。
+- 服务端 HTTP 客户端使用 Windows 自带 `curl.exe`（crates.io 受限时的零依赖方案），隔离在 `remote_image.rs::run_curl()`，后续可替换。
 
 ---
 

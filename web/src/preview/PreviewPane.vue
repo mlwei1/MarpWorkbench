@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { loadMarpCore } from '../marp/renderer'
 import { fetchDeckAssetBlob } from '../api'
+import { loadRemoteImages } from '../integrations/optionalComponents'
 
 const props = defineProps<{
   html: string
@@ -81,6 +82,60 @@ async function resolveDeckAssets(doc: Document): Promise<void> {
   await Promise.all(pending)
 }
 
+/**
+ * M3：把 html 里的远程图片（http(s)://）换成同源代理 URL（`/api/proxy/image?url=…&token=…`）。
+ * 代理路由允许 iframe 的 <img> 不带 header 访问；CSP `img-src 'self'` 继续生效，零外网请求。
+ * export-eng 的 remoteImages.ts 未就绪时安全跳过（图片保持原 URL，会被 CSP 拦下但不报错）。
+ */
+let remoteImagesProxy: ((url: string) => string) | null = null
+let remoteImagesLoaded = false
+
+async function ensureRemoteProxy(): Promise<((url: string) => string) | null> {
+  if (remoteImagesLoaded) return remoteImagesProxy
+  remoteImagesLoaded = true
+  if (!loadRemoteImages) return null
+  try {
+    const mod = await loadRemoteImages()
+    remoteImagesProxy = typeof mod.proxyImageUrl === 'function' ? mod.proxyImageUrl : null
+  } catch (err) {
+    console.warn('[preview] remoteImages 模块加载失败，网络图片暂不代理', err)
+    remoteImagesProxy = null
+  }
+  return remoteImagesProxy
+}
+
+async function prepareRemoteImages(html: string): Promise<string> {
+  if (!html || !/https?:\/\//.test(html)) return html
+  const proxy = await ensureRemoteProxy()
+  if (!proxy) return html
+
+  const cache = new Map<string, string>()
+  const toProxy = (url: string): string => {
+    const hit = cache.get(url)
+    if (hit) return hit
+    let next = url
+    try {
+      next = proxy(url)
+    } catch {
+      next = url
+    }
+    cache.set(url, next)
+    return next
+  }
+  const escapeAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+
+  let next = html.replace(
+    /(<img\b[^>]*?\bsrc=)(["'])(https?:\/\/[^"']+)\2/gi,
+    (_m, prefix: string, quote: string, url: string) => `${prefix}${quote}${escapeAttr(toProxy(url))}${quote}`,
+  )
+  // marp 背景图：<figure style="background-image:url('https://…')">
+  next = next.replace(
+    /url\((\s*)(["']?)(https?:\/\/[^)'"\s]+)\2(\s*)\)/gi,
+    (_m, sp1: string, quote: string, url: string, sp2: string) => `url(${sp1}${quote}${toProxy(url)}${quote}${sp2})`,
+  )
+  return next
+}
+
 const emit = defineEmits<{
   'page-count': [count: number]
 }>()
@@ -106,26 +161,36 @@ const empty = computed(() => !props.html || props.html.trim() === '')
  */
 async function prepareHtml(): Promise<void> {
   const token = ++prepareToken
-  const html = props.html || ''
-  if (!props.deckId || !html) {
-    resolvedHtml.value = html
+  let html = props.html || ''
+  if (!html) {
+    resolvedHtml.value = ''
     return
   }
-  const refs = new Map<string, string>()
-  for (const m of html.matchAll(/assets\/[^"'()<>\s&]+/g)) refs.set(m[0], m[0])
-  let next = html
-  for (const path of refs.keys()) {
-    const url = await resolveAssetUrl(path)
-    if (token !== prepareToken) return
-    if (url) next = next.split(path).join(url)
+  // 1) deck 相对资产 assets/x.png → dataURL/blob（避免 iframe 相对路径 404）
+  if (props.deckId) {
+    const refs = new Map<string, string>()
+    for (const m of html.matchAll(/assets\/[^"'()<>\s&]+/g)) refs.set(m[0], m[0])
+    let next = html
+    for (const path of refs.keys()) {
+      const url = await resolveAssetUrl(path)
+      if (token !== prepareToken) return
+      if (url) next = next.split(path).join(url)
+    }
+    html = next
   }
-  if (token === prepareToken) resolvedHtml.value = next
+  // 2) M3：远程图片 http(s):// → 同源代理 URL（代理模块未就绪时保持原样）
+  try {
+    html = await prepareRemoteImages(html)
+  } catch (err) {
+    console.warn('[preview] 远程图片代理预处理失败', err)
+  }
+  if (token === prepareToken) resolvedHtml.value = html
 }
 
 const srcdoc = computed(() => {
   if (empty.value) return ''
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
-<base href="about:blank">
+<base href="${location.origin}/">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'unsafe-inline'">
 <style>html,body{margin:0;padding:0}${props.css}</style>
 <style>

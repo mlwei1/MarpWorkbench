@@ -43,3 +43,41 @@ const pasteDropModules = import.meta.glob('../insert/pasteDrop.ts') as Record<st
 
 /** 懒加载 pasteDrop.ts；文件未就绪时 null（EditView 会安全跳过） */
 export const loadPasteDrop: PasteDropLoader | null = pasteDropModules['../insert/pasteDrop.ts'] || null
+
+// ---------- M3：图片原位编辑（export-eng 的 compose.ts 扩展） ----------
+export interface ParsedImageLike {
+  line: number
+  start: number
+  end: number
+  raw: string
+  kind: 'image' | 'background'
+  path: string
+  modifiers: string[]
+}
+type ComposeModule = {
+  parseImageAtLine?: (markdown: string, line1: number, tolerance?: number) => ParsedImageLike | null
+  replaceImageAt?: (markdown: string, image: ParsedImageLike, snippet: string) => string
+}
+type ComposeLoader = () => Promise<ComposeModule>
+const composeModules = import.meta.glob('../insert/compose.ts') as Record<string, ComposeLoader>
+
+/** 懒加载 compose.ts（parseImageAtLine/replaceImageAt 可能稍后才出现） */
+export const loadInsertCompose: ComposeLoader | null = composeModules['../insert/compose.ts'] || null
+
+// ---------- M3：网络图片（export-eng 的 remoteImages.ts / RemoteImagesBanner.vue） ----------
+type RemoteImagesModule = {
+  proxyImageUrl?: (url: string) => string
+  findRemoteImages?: (markdown: string) => { url: string; start: number; end: number }[]
+  replaceRemoteImages?: (markdown: string, mapping: Record<string, string>) => string
+  localizeRemoteImages?: (deckId: string, markdown: string) => Promise<unknown>
+}
+type RemoteImagesLoader = () => Promise<RemoteImagesModule>
+const remoteImagesModules = import.meta.glob('../insert/remoteImages.ts') as Record<string, RemoteImagesLoader>
+
+/** 懒加载 remoteImages.ts；文件未就绪时 null（PreviewPane 会跳过代理） */
+export const loadRemoteImages: RemoteImagesLoader | null = remoteImagesModules['../insert/remoteImages.ts'] || null
+
+const remoteBannerModules = import.meta.glob('../insert/RemoteImagesBanner.vue') as Record<string, AsyncModule>
+
+/** export-eng 的 `<RemoteImagesBanner>`（M3 网络图片本地化提示条）；文件未就绪时 null */
+export const RemoteImagesBannerAsync = pick(remoteBannerModules, '../insert/RemoteImagesBanner.vue')

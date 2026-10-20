@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>mermaid lazy-load test</title>
+<style>
+  body { margin: 0; font: 13px/1.6 Consolas, monospace; background: #111; color: #0f0; }
+  #status { padding: 8px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="status">running…</div>
+<script src="/marp-core.browser.js"></script>
+<script src="/out/mermaid-module.js"></script>
+<script>
+/* global MarpCoreBundle, MwbMermaid */
+;(function () {
+  window.__DONE__ = false
+  window.__RESULT__ = null
+  var checks = []
+  function check(name, ok, detail) { checks.push({ name: name, ok: !!ok, detail: detail === undefined ? '' : String(detail) }) }
+  function bundleRequestCount() {
+    return performance.getEntriesByType('resource').filter(function (e) { return /\/mermaid\.browser\.js(\?|$)/.test(e.name) }).length
+  }
+  async function run() {
+    var result = { ok: false, checks: checks }
+    try {
+      var bundle = window.MarpCoreBundle.MarpCore
+      var Mwb = window.MwbMermaid
+      var marp = new bundle.Marp({ html: true, script: false, minifyCSS: true, math: { lib: 'mathjax' } })
+      // 阶段 1：无 mermaid 的 deck —— 不得请求 /mermaid.browser.js
+      var plain = marp.render('---\ntheme: default\n---\n\n# 纯文字页\n\n- 没有图表\n- 不应加载 mermaid').html
+      check('阶段1: hasMermaid=false', Mwb.hasMermaid(plain) === false)
+      var outPlain = await Mwb.renderMermaidInHtml(plain)
+      check('阶段1: renderMermaidInHtml 原样返回', outPlain === plain)
+      check('阶段1: 未请求 /mermaid.browser.js', bundleRequestCount() === 0, 'requests=' + bundleRequestCount())
+      check('阶段1: 全局 MermaidBundle 未加载', typeof window.MermaidBundle === 'undefined')
+      // 阶段 2：有 mermaid —— 懒加载一次，之后复用
+      var withDiagram = marp.render('```mermaid\ngraph LR\n  A[懒加载] --> B[成功]\n```').html
+      check('阶段2: hasMermaid=true', Mwb.hasMermaid(withDiagram) === true)
+      var out1 = await Mwb.renderMermaidInHtml(withDiagram)
+      check('阶段2: 渲染出图', /class="mwb-mermaid"/.test(out1) && /<svg/.test(out1))
+      check('阶段2: bundle 恰好请求 1 次', bundleRequestCount() === 1, 'requests=' + bundleRequestCount())
+      check('阶段2: 全局 MermaidBundle 已就绪', !!(window.MermaidBundle && window.MermaidBundle.default && typeof window.MermaidBundle.default.render === 'function'))
+      await Mwb.renderMermaidInHtml(withDiagram)
+      check('阶段2: 重复渲染不再请求 bundle', bundleRequestCount() === 1, 'requests=' + bundleRequestCount())
+      result.ok = checks.every(function (c) { return c.ok })
+    } catch (err) {
+      result.fatal = (err && (err.stack || err.message)) || String(err)
+    }
+    window.__RESULT__ = result
+    window.__DONE__ = true
+    document.title = result.ok ? 'OK' : 'FAIL'
+    document.getElementById('status').textContent = JSON.stringify(result, null, 2)
+  }
+  run()
+})()
+</script>
+</body>
+</html>

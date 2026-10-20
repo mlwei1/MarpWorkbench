@@ -455,3 +455,116 @@ $env:MWB_UI_BASE='http://localhost:5183'; node spike/export/scripts/verify-m2-ui
 > 未完成/边界：普通图片「原图」尺寸取决于图片原始像素（Marp 语义）；超高图片仍可能被主题
 > `overflow:hidden` 裁切（与预览一致）。对话框对超大图（>20MB）直接拒绝并提示。
 
+---
+
+## 14. M3 图片原位编辑 + 网络图片（owner: export-eng）
+
+> 契约：`docs/UI_CONTRACT_M3.md` §2.2（网络图片前端）/ §3（图片原位编辑）。写范围：`web/src/insert/**`（不含 `EditorToolbar.vue`）、本文件、`spike/export/**`。
+> 关联：服务端代理/本地化接口由 desktop-packaging 并行实现（`GET /api/proxy/image`、`POST /api/decks/:id/localize-images`），前端按契约签名调用。
+
+### 14.1 A. 图片原位编辑（`compose.ts` + `ImageInsertDialog.vue`）
+
+**解析/替换工具（`web/src/insert/compose.ts` 新增）**
+
+```ts
+export interface ParsedImage {
+  line: number; start: number; end: number; raw: string
+  kind: 'image' | 'background'; alt: string; path: string
+  modifiers: string[]                       // ['bg','left:40%','opacity:.5','w:640px',...]
+  bgLayout: 'full'|'left'|'right'; bgRatio: number; fit: 'cover'|'contain'|'fit'
+  widthPx: number|null; widthPercent: number|null; opacity: number|null
+  blur: number; grayscale: boolean
+  extraModifiers: string[]                  // 本 UI 不认识的修饰符（brightness/vertical…），编辑保存时透传
+}
+export function parseImageAtLine(markdown, line1, tolerance = 1): ParsedImage | null
+export function replaceImageAt(markdown, image, snippet): string
+export function findImageTokens(markdown): ParsedImage[]   // 整篇扫描（跳过代码围栏）
+```
+
+- 识别 `![alt](path)` 与 `![bg …](path)`（alt 任意），支持 `<…>` 包裹的 dest；
+- **跳过代码围栏**（``` / ~~~ 内及其分隔行都不识别）；
+- 光标容差默认 ±1 行（顺序：本行 → 上一行 → 下一行）；同一行多图优先返回背景图；
+- `replaceImageAt` 用 `start/end` **精确替换图片语法本体**（不含行尾换行）→ 前后文/行数不变；
+- range 失效（例如内容被改过）时按「原行附近 → 同 path 全文」自动重定位，不会乱插。
+
+**对话框编辑模式（`ImageInsertDialog.vue`）**
+
+| 项 | 行为 |
+|---|---|
+| 新 prop | `initialImage?: ParsedImage \| null`；提供时进入编辑模式（标题「编辑图片」、按钮「保存修改」） |
+| 来源区 | 展示当前图片缩略图（assets 走过 token 内联；http 走代理 URL），点击/拖拽/粘贴可「更换图片」 |
+| 预填 | 背景图 → 位置（整页/左/右）+ 占比；cover/contain/fit；`opacity` → 透明度滑杆；`blur`/`grayscale`；`w:640px` 或 `w:50%` → 宽度下拉（按页宽换算，偏离选项 >12% 回退「原图」） |
+| 透传 | 未识别修饰符（brightness/vertical…）原样保留在 `extraModifiers`，保存时附回 |
+| 预览 | 候选 md = `replaceImageAt(markdown, initialImage, snippet)` → 渲染后只显示该图片所在页（原位效果） |
+| emit | `{ snippet, mode, edit?: { line, start, end } }`（编辑模式带 edit；兼容 M2 旧调用） |
+
+EditView（marp-tech）集成：`getCursorLine()` → `parseImageAtLine` 命中则打开编辑模式，`@insert` 带 `edit` 时用
+`replaceImageAt(content, parsed, snippet)` 原位替换 + 保存 + toast「图片已更新」；未命中走原新建流程。
+
+### 14.2 B. 网络图片前端（`remoteImages.ts` + `RemoteImagesBanner.vue`）
+
+```ts
+export function findRemoteImages(markdown): { url; start; end }[]      // 普通图 + ![bg]；跳过代码围栏
+export function replaceRemoteImages(markdown, mapping): string         // 同时替换 URL 原文/encodeURI 形式
+export function proxyImageUrl(url): string                             // /api/proxy/image?url=…&token=…（自带 token）
+export async function localizeRemoteImages(deckId, markdown)           // POST /api/decks/:id/localize-images
+export function hasRemoteImageRefs(text): boolean
+export function proxyRemoteImagesInHtml(html): string                  // 预览：src/background-image → 代理（不动 <a href>）
+export async function inlineRemoteImageDataUrls(html, onProgress?)     // 导出：经代理取回 → dataURL（失败不阻断）
+```
+
+- **代理 URL 自带 token**（`getToken()`），供 iframe 内 `<img src>` 使用；服务端仅该路由允许 query token。
+- `RemoteImagesBanner.vue` props `{deckId, markdown}`，emit `localized: [{markdown, localized, failed}]`：
+  检测到 N 张网络图片 → 顶部提示条；「下载到本地」调 localize（进度/失败列表/可读错误，mock 模式提示不支持）；
+  「忽略」按 `deckId` + URL 集合 hash 记 `localStorage`（`mwb.remoteImages.ignored.<deckId>`），URL 集合变化后自动重新出现。
+- 插入器 URL 输入：http(s) 图片**先尝试 localize 到 assets/**，失败回退原 URL 并提示「将联网显示」。
+- **导出内联（`ExportPanel.prepareAssets`）**：先内联 deck 资产（dataURL），再对 html 里 `src/background-image` 的
+  http(s) 图片经 `/api/proxy/image` 取回并内联成 dataURL；失败不阻断，结果面板提示「有 N 张网络图片未能下载」。
+  另外 `render` 调用改为 `await Promise.resolve(props.render())`，兼容 marp-tech 的 thenable（mermaid 渲染后 html）。
+- 预览侧（marp-tech）：`PreviewPane` 注入 iframe 前用 `proxyRemoteImagesInHtml` 替换远程图片 URL（CSP 保持 `img-src 'self' data: blob:`）。
+
+### 14.3 自测 / 复现（实测 2026-10-20）
+
+```powershell
+# 单测 + 真实浏览器冒烟（Vite dev + mock，不依赖 EditView 集成；组件由脚本直接挂载）
+node spike/export/scripts/verify-image-edit.mjs
+#   只跑单测（快）：$env:MWB_SKIP_BROWSER='1'; node spike/export/scripts/verify-image-edit.mjs
+#   截图：spike/export/out/m3-edit-dialog.png、m3-banner.png
+#   报告：spike/export/out/verify-image-edit-report.json
+
+# 真实 exe 端到端（proxy/localize 契约 + Banner 本地化 + 真实 UI 图片原位编辑）
+#   需 exe 含最新 server + web/dist；并行开发时可用 $env:MWB_SKIP_BUILD='1' 跳过自动重建
+node spike/export/scripts/verify-m3-e2e.mjs
+#   截图：spike/export/out/m3-e2e-banner.png、m3-e2e-edit.png；报告：m3-e2e-report.json
+
+pnpm --dir web build
+```
+
+**实测结果**：`verify-image-edit` **unit 18/18 + browser 17/17** 通过。覆盖：
+- 解析：`bg left:40% opacity:.5` / `bg right:30% contain blur grayscale` / `w:640px` / `w:50%` / alt+修饰符混合 / 未知修饰符透传 / 代码围栏跳过 / ±1 行容差；
+- 替换：行数不变、前后文保留、range 失效重定位、普通图↔背景图互换；
+- 编辑对话框：标题「编辑图片」、预填背景图+左侧+40%+透明度 50%、改右侧 60% → `![bg right:60% opacity:.5]`、保存 emit `edit`、`replaceImageAt` 原位替换无新增行；普通图 `w:640px` → 改 75% → `w:960px` 同样原位替换；
+- Banner：检测 2 张、mock 下载失败可读提示、忽略后隐藏并写 localStorage、URL 变化后重新出现；
+- 远程工具：`find/replace`、`proxyImageUrl`（编码+token）、`proxyRemoteImagesInHtml`（含 `&quot;` 的 background-image，不误改 `<a href>`）、失败不抛错。
+- 浏览器冒烟无页面 JS 错误。
+
+**真实 exe 端到端（`spike/export/scripts/verify-m3-e2e.mjs`，2026-10-20）：22/22 通过**
+
+| 类别 | 覆盖与结果 |
+|---|---|
+| 服务端 proxy 契约 | 远程图 200 + `image/png` + 字节一致；二次请求命中缓存（≈12ms）；302 重定向跟随；`file://` 拒绝 400；非图片 content-type 400；错误 token 401 |
+| 服务端 localize 契约 | `{mapping, failed}` 正确；资产落盘 `assets/remote-<hash8>.png` 且可读取；**不修改 markdown** |
+| 真实 UI（exe 内嵌前端） | Banner 检测「2 张网络图片」；预览把 `http(s)` 图换成 `/api/proxy/image` 同源 URL；点「下载到本地」→ markdown 替换为 `assets/remote-*` 并保存、Banner 消失 |
+| 真实 UI 图片原位编辑 | 光标放到 `![bg left:40%]` 行 → 工具栏图片按钮 → 对话框「编辑图片」预填 → 改右侧 60% → 保存 → markdown **原位替换** `![bg right:60%]`、无新增图片行、无 JS 错误 |
+
+> 注意：E2E 需要 exe 同时包含最新 server（proxy/localize）与 `web/dist`（M3 前端）。并行开发时用
+> `$env:MWB_SKIP_BUILD='1'` 可跳过脚本的自动重建（避免与队友构建抢 cargo 锁），但要求当前 exe 足够新。
+> 截图：`spike/export/out/m3-e2e-banner.png`、`m3-e2e-edit.png`；报告：`m3-e2e-report.json`。
+
+### 14.4 已知限制
+
+1. 依赖服务端两个新接口；若 exe 尚未更新，Banner/导出会显示可读错误（「接口尚未就绪」/「无法下载远程图片」），不影响编辑与本地图片。
+2. 编辑模式预填受 UI 选项范围约束：占比滑杆 20–70%（原语法 1–99% 会被 clamp）；宽度只支持 原图/25/50/75/100%（非标准 px 回退「原图」，但 `h:` 等未知修饰符会透传保留）。
+3. 远程图片只有在「下载到本地」后才会改写 markdown；未本地化时预览靠代理、导出靠代理内联，断网场景导出会缺图（有提示）。
+4. 服务端代理的安全策略（私网/重定向上限/15MB/10s/缓存）见 `docs/dev/server.md` 的 M3 章节；测试本机地址需 `MWB_PROXY_ALLOW_PRIVATE=1`。
+

@@ -4,16 +4,18 @@
   "private": true,
   "description": "MarpWorkbench — 便携单文件 Marp 幻灯片工作台（本地服务 + 浏览器 UI）",
   "scripts": {
+    "build:mermaid": "node scripts/build-mermaid-bundle.mjs",
     "build:marp": "node scripts/build-marp-browser.mjs",
     "build:web": "pnpm --dir web build",
     "build:server": "cargo build --release --manifest-path server/Cargo.toml",
-    "build": "pnpm run build:marp && pnpm run build:web && pnpm run build:server",
+    "build": "pnpm run build:mermaid && pnpm run build:marp && pnpm run build:web && pnpm run build:server",
     "dev:web": "pnpm --dir web dev",
     "dev:server": "cargo run --manifest-path server/Cargo.toml",
     "smoke": "node scripts/smoke.mjs",
     "verify:smoke": "node scripts/smoke.mjs",
     "verify:visual": "node scripts/visual-e2e.mjs --embedded",
-    "verify:m2": "node scripts/visual-e2e-m2.mjs"
+    "verify:m2": "node scripts/visual-e2e-m2.mjs",
+    "verify:m3": "node scripts/visual-e2e-m3.mjs"
   },
   "engines": {
     "node": ">=20"

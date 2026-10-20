@@ -54,6 +54,43 @@ export function sanitizeHtml(html: string): string {
   return html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '')
 }
 
+// ============================================================
+// Mermaid 集成（M3，模块由 mermaid-eng 提供；未就绪时安全跳过）
+// 契约：docs/UI_CONTRACT_M3.md §1.2/§1.3
+// - 只识别 ```mermaid / ```mmd（marp-core 输出 <code class="language-mermaid">）
+// - 无 mermaid 的 deck 不加载 mermaid bundle（懒加载，懒 import 模块）
+// ============================================================
+
+export interface MermaidModule {
+  hasMermaid?: (html: string) => boolean
+  renderMermaidInHtml?: (html: string) => Promise<string>
+  applyMermaidCacheSync?: (html: string) => string
+}
+
+type MermaidLoader = () => Promise<MermaidModule>
+
+// glob 目录下所有可能的入口文件；模块文件尚未落盘时返回 {}，不会导致 build 失败
+const mermaidModules = import.meta.glob('../mermaid/*.{ts,js,mjs}') as Record<string, MermaidLoader>
+
+function pickMermaidLoader(): MermaidLoader | null {
+  const preferred = [
+    '../mermaid/index.ts',
+    '../mermaid/index.js',
+    '../mermaid/index.mjs',
+    '../mermaid/mermaid.ts',
+    '../mermaid/main.ts',
+  ]
+  for (const key of preferred) {
+    if (mermaidModules[key]) return mermaidModules[key]
+  }
+  return null
+}
+
+const MERMAID_MARKUP_RE = /language-(?:mermaid|mmd)\b|class="[^"]*mermaid\b/
+export function hasMermaidMarkup(html: string): boolean {
+  return MERMAID_MARKUP_RE.test(html || '')
+}
+
 export interface RenderOutput extends RenderResult {
   usedTheme: string
   fallback: boolean
@@ -63,6 +100,9 @@ export class MarpRenderer {
   private marp: any = null
   private core: MarpCoreModule | null = null
   private initPromise: Promise<void> | null = null
+  private mermaidModule: MermaidModule | null = null
+  private mermaidLoader: MermaidLoader | null | undefined = undefined
+  private mermaidPromise: Promise<MermaidModule | null> | null = null
 
   init(): Promise<void> {
     if (!this.initPromise) this.initPromise = this.doInit()
@@ -158,6 +198,62 @@ export class MarpRenderer {
   /** 主题画廊缩略图：按指定主题渲染当前 deck（不改动前后文） */
   renderWithTheme(markdown: string, theme: string): RenderOutput {
     return this.render(markdown, { theme })
+  }
+
+  // ---------------- Mermaid（M3） ----------------
+
+  private async ensureMermaid(): Promise<MermaidModule | null> {
+    if (this.mermaidModule) return this.mermaidModule
+    if (!this.mermaidPromise) {
+      this.mermaidPromise = (async () => {
+        if (this.mermaidLoader === undefined) this.mermaidLoader = pickMermaidLoader()
+        if (!this.mermaidLoader) return null
+        try {
+          const mod = await this.mermaidLoader()
+          this.mermaidModule = mod
+          return mod
+        } catch (err) {
+          console.warn('[marp] mermaid 模块加载失败，已跳过图表渲染', err)
+          this.mermaidLoader = null
+          return null
+        }
+      })()
+    }
+    return this.mermaidPromise
+  }
+
+  /**
+   * 异步渲染：同步 render + mermaid 代码块 → SVG（懒加载模块；无 mermaid 的 deck 不加载）。
+   * 任何一步失败都回退到同步结果，保证编辑器可用。
+   */
+  async renderAsync(markdown: string, options: { theme?: string } = {}): Promise<RenderOutput> {
+    const base = this.render(markdown, options)
+    if (!hasMermaidMarkup(base.html)) return base
+    const mod = await this.ensureMermaid()
+    if (!mod?.renderMermaidInHtml) return base
+    try {
+      const html = await mod.renderMermaidInHtml(base.html)
+      return { ...base, html: sanitizeHtml(html) }
+    } catch (err) {
+      console.warn('[marp] mermaid 渲染失败（保留代码块）', err)
+      return base
+    }
+  }
+
+  /** 同步路径（画廊缩略图等）：用已渲染过的 mermaid 缓存替换代码块；缓存未命中保持原样 */
+  applyMermaidCacheSync(html: string): string {
+    if (!html || !hasMermaidMarkup(html) || !this.mermaidModule?.applyMermaidCacheSync) return html
+    try {
+      return this.mermaidModule.applyMermaidCacheSync(html)
+    } catch (err) {
+      console.warn('[marp] mermaid 缓存替换失败', err)
+      return html
+    }
+  }
+
+  /** mermaid 模块是否已加载（e2e/调试用） */
+  get mermaidReady(): boolean {
+    return !!this.mermaidModule
   }
 
   /** 应用 marp-core 浏览器 helper（SVG polyfill / auto-scaling / 自定义元素） */

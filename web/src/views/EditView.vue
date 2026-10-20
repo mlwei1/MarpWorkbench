@@ -16,7 +16,7 @@ import {
 } from '../stores/app'
 import * as API from '../api'
 import { ApiError, readableError } from '../api/errors'
-import { renderer } from '../marp/renderer'
+import { renderer, hasMermaidMarkup } from '../marp/renderer'
 import { resolveDeckAssetsInHtml, resolveDeckAssetsInHtmlSync, resolveDeckAssetsInMarkdownSync } from '../marp/assets'
 import {
   getMarkdownTheme,
@@ -28,11 +28,14 @@ import {
 import {
   ExportPanelAsync,
   ImageInsertDialogAsync,
+  RemoteImagesBannerAsync,
   SlideNavigatorAsync,
   TableInsertDialogAsync,
   ThemeGalleryAsync,
+  loadInsertCompose,
   loadPasteDrop,
 } from '../integrations/optionalComponents'
+import type { ParsedImageLike } from '../integrations/optionalComponents'
 import type { DeckDetail, RenderResult } from '../types'
 import { formatTime } from '../utils/format'
 
@@ -64,7 +67,8 @@ const warnedFallback = ref('')
 const deckAssets = ref<{ path: string; url: string }[]>([])
 const resolvedHtml = ref('')
 const resolvedMarkdown = ref('')
-let assetResolveToken = 0
+/** M3：图片编辑模式下的原图解析结果 */
+const pendingImage = ref<ParsedImageLike | null>(null)
 
 // M2 左侧栏 / 右侧属性栏（localStorage 记忆折叠状态）
 const leftOpen = ref(localStorage.getItem('mwb.edit.leftOpen') !== '0')
@@ -87,40 +91,57 @@ const canExport = computed(() => !!ExportPanelAsync)
 const canImageInsert = computed(() => !!ImageInsertDialogAsync)
 const canTableInsert = computed(() => !!TableInsertDialogAsync)
 
-// ---------------- 渲染 ----------------
+// ---------------- 渲染（M3：sync → mermaid → assets，token 防竞态） ----------------
+let renderToken = 0
+
 function scheduleRender(delay = 140): void {
   window.clearTimeout(renderTimer)
-  renderTimer = window.setTimeout(doRender, delay)
+  renderTimer = window.setTimeout(() => void doRender(), delay)
 }
 
-function doRender(): void {
-  if (!renderer.isReady) return
-  try {
-    const result = renderer.render(content.value, themeOverride.value ? { theme: themeOverride.value } : {})
-    preview.value = result
-    void resolvePreviewAssets(result.html)
-    pageCount.value = Math.max(1, result.comments.length)
-    previewError.value = ''
-    if (result.fallback && warnedFallback.value !== effectiveTheme.value) {
-      warnedFallback.value = effectiveTheme.value
-      toast(`主题「${themeDisplayName(effectiveTheme.value)}」未加载，预览已回退 default（front-matter 未改动）`, 'info', 3600)
-    }
-  } catch (err) {
-    previewError.value = readableError(err)
+function applyRenderResult(result: ReturnType<typeof renderer.render>): void {
+  preview.value = result
+  pageCount.value = Math.max(1, result.comments.length)
+  previewError.value = ''
+  if (result.fallback && warnedFallback.value !== effectiveTheme.value) {
+    warnedFallback.value = effectiveTheme.value
+    toast(`主题「${themeDisplayName(effectiveTheme.value)}」未加载，预览已回退 default（front-matter 未改动）`, 'info', 3600)
   }
 }
 
-/** 把渲染结果里的 assets/x.png 预解析成 data URL（预览/缩略图共用，避免 iframe 相对路径 404） */
-async function resolvePreviewAssets(html: string): Promise<void> {
-  const token = ++assetResolveToken
+async function doRender(): Promise<void> {
+  if (!renderer.isReady) return
+  const token = ++renderToken
+  const options = themeOverride.value ? { theme: themeOverride.value } : {}
   try {
-    const next = await resolveDeckAssetsInHtml(html, deck.value?.id, deckAssets.value)
-    if (token === assetResolveToken) {
+    // 1) 同步渲染：立即出图（mermaid 仍为代码块）
+    const base = renderer.render(content.value, options)
+    if (token !== renderToken) return
+    applyRenderResult(base)
+    // 立刻把同步结果交给 iframe，避免 mermaid 首次加载（~3-5s）期间预览停留在旧内容
+    resolvedHtml.value = base.html
+    resolvedMarkdown.value = resolveDeckAssetsInMarkdownSync(content.value, deck.value?.id)
+
+    // 2) mermaid：只有出现 mermaid/mmd 代码块时才懒加载（无图表 deck 不加载 bundle）
+    let html = base.html
+    if (hasMermaidMarkup(html)) {
+      const enhanced = await renderer.renderAsync(content.value, options)
+      if (token !== renderToken) return
+      applyRenderResult(enhanced)
+      html = enhanced.html
+    }
+
+    // 3) deck 资产 assets/x.png → dataURL（预览/缩略图共用）
+    try {
+      const next = await resolveDeckAssetsInHtml(html, deck.value?.id, deckAssets.value)
+      if (token !== renderToken) return
       resolvedHtml.value = next
       resolvedMarkdown.value = resolveDeckAssetsInMarkdownSync(content.value, deck.value?.id)
+    } catch {
+      if (token === renderToken) resolvedHtml.value = html
     }
-  } catch {
-    if (token === assetResolveToken) resolvedHtml.value = html
+  } catch (err) {
+    if (token === renderToken) previewError.value = readableError(err)
   }
 }
 
@@ -241,14 +262,28 @@ function closeGallery(): void {
 /** ThemeGallery 缩略图渲染：按主题渲染当前 deck，返回 {html, css} */
 function renderForGallery(themeName: string): { html: string; css: string } {
   const r = renderer.renderWithTheme(resolvedMarkdown.value || content.value, themeName)
-  // 缩略图 iframe 是相对路径基准，命中缓存时把 assets 换成 data URL，避免 404/漏图
-  return { html: resolveDeckAssetsInHtmlSync(r.html, deck.value?.id), css: r.css }
+  // M3：主预览已渲染过的 mermaid 用同步缓存替换；再套 assets dataURL（缩略图 iframe 相对路径基准）
+  const withMermaid = renderer.applyMermaidCacheSync(r.html)
+  return { html: resolveDeckAssetsInHtmlSync(withMermaid, deck.value?.id), css: r.css }
 }
 
-/** ExportPanel 用：当前内容 + 当前主题的渲染结果 */
-function renderForExport(): { html: string; css: string; comments: string[] } {
-  const r = renderer.render(content.value)
-  return { html: r.html, css: r.css, comments: r.comments }
+/**
+ * ExportPanel 用渲染函数（M3）：
+ * - 返回对象同时具备同步属性（mermaid 缓存 + assets dataURL，导出面板的 pageSize/slideCount 同步读取不坏）
+ * - 又是 thenable：`await Promise.resolve(render())` 会得到完整异步版（保证 PDF/PPTX/HTML 里 mermaid 是图）
+ */
+function renderForExport(): any {
+  const base = renderer.render(content.value)
+  const syncHtml = resolveDeckAssetsInHtmlSync(renderer.applyMermaidCacheSync(base.html), deck.value?.id)
+  const sync = { html: syncHtml, css: base.css, comments: base.comments }
+  const resolveAsync = async () => {
+    const r = await renderer.renderAsync(content.value)
+    const html = await resolveDeckAssetsInHtml(r.html, deck.value?.id, deckAssets.value)
+    return { html, css: r.css, comments: r.comments }
+  }
+  return Object.assign(sync, {
+    then: (onfulfilled?: any, onrejected?: any) => resolveAsync().then(onfulfilled, onrejected),
+  })
 }
 
 function openExport(): void {
@@ -291,28 +326,118 @@ function toggleRight(): void {
   localStorage.setItem('mwb.edit.rightOpen', rightOpen.value ? '1' : '0')
 }
 
-// ---------------- 图片 / 表格插入（M2） ----------------
+// ---------------- 图片 / 表格 / 图表（M2/M3） ----------------
 function openImageDialog(mode: 'image' | 'background' = 'image'): void {
   if (!canImageInsert.value) {
     toast('图片插入器尚未就绪（export-eng 开发中）', 'info')
     return
   }
+  pendingImage.value = null
   imageMode.value = mode
   imageDialogOpen.value = true
 }
 
-function onImageInsert(result: { snippet: string; mode: 'image' | 'background' }): void {
-  if (!result?.snippet) return
-  if (result.mode === 'background') {
+/** M3：工具栏「图片」按钮 —— 光标所在行命中已有图片 → 编辑该图片；否则新建 */
+async function openImageFromCursor(): Promise<void> {
+  if (!canImageInsert.value) {
+    toast('图片插入器尚未就绪（export-eng 开发中）', 'info')
+    return
+  }
+  const line = editorRef.value?.getCursorLine() ?? 1
+  let parsed: ParsedImageLike | null = null
+  if (loadInsertCompose) {
+    try {
+      const mod = await loadInsertCompose()
+      parsed = mod.parseImageAtLine?.(content.value, line) ?? null
+    } catch (err) {
+      console.warn('[image] parseImageAtLine 执行失败，按新建处理', err)
+    }
+  }
+  pendingImage.value = parsed
+  imageMode.value = parsed?.kind === 'background' ? 'background' : 'image'
+  imageDialogOpen.value = true
+  if (parsed) toast('编辑当前图片：修改后原位替换', 'info', 2200)
+}
+
+/** M3：编辑模式保存 —— 原位替换（优先 export-eng 的 replaceImageAt，回退按 edit 区间） */
+async function replaceEditedImage(
+  snippet: string,
+  edit: { line: number; start: number; end: number },
+): Promise<boolean> {
+  const parsed = pendingImage.value
+  if (parsed && loadInsertCompose) {
+    try {
+      const mod = await loadInsertCompose()
+      const next = mod.replaceImageAt?.(content.value, parsed, snippet)
+      if (typeof next === 'string' && next !== content.value) {
+        content.value = next
+        return true
+      }
+    } catch (err) {
+      console.warn('[image] replaceImageAt 失败，回退区间替换', err)
+    }
+  }
+  const { start, end } = edit
+  if (typeof start === 'number' && typeof end === 'number' && start >= 0 && end >= start && end <= content.value.length) {
+    content.value = content.value.slice(0, start) + snippet + content.value.slice(end)
+    return true
+  }
+  return false
+}
+
+async function onImageInsert(result: {
+  snippet: string
+  mode: 'image' | 'background'
+  edit?: { line: number; start: number; end: number }
+}): Promise<void> {
+  if (!result?.snippet) {
+    imageDialogOpen.value = false
+    pendingImage.value = null
+    return
+  }
+  if (result.edit) {
+    const ok = await replaceEditedImage(result.snippet, result.edit)
+    if (ok) {
+      dirty.value = true
+      scheduleSave()
+      scheduleRender(0)
+      toast('图片已更新', 'success')
+    } else {
+      toast('未能定位原图片位置，图片未替换', 'error', 4000)
+    }
+  } else if (result.mode === 'background') {
     content.value = insertAtPageStart(content.value, page.value, result.snippet)
     dirty.value = true
     scheduleSave()
     scheduleRender(0)
+    toast('已插入背景图', 'success')
   } else {
     editorRef.value?.insertText(result.snippet, { block: true })
+    toast('已插入图片', 'success')
   }
   imageDialogOpen.value = false
-  toast(result.mode === 'background' ? '已插入背景图' : '已插入图片', 'success')
+  pendingImage.value = null
+}
+
+/** M3：插入 mermaid 图表模板，光标落在图内容行 */
+function onInsertChart(): void {
+  const template = '```mermaid\ngraph LR\n  A[开始] --> B[结束]\n```'
+  editorRef.value?.insertText(template + '\n', { block: true })
+  const endLine = editorRef.value?.getCursorLine() ?? 1
+  editorRef.value?.setCursor(Math.max(1, endLine - 2), 0)
+}
+
+/** M3：网络图片本地化完成（RemoteImagesBanner emit localized） */
+function onRemoteImagesLocalized(payload: unknown): void {
+  const data = payload as { markdown?: string; localized?: number } | string | null
+  const md = typeof data === 'string' ? data : data?.markdown
+  if (!md || md === content.value) return
+  content.value = md
+  dirty.value = true
+  scheduleSave()
+  scheduleRender(0)
+  const n = typeof data === 'object' && data ? data.localized : undefined
+  toast(typeof n === 'number' ? `已下载 ${n} 张网络图片到本地` : '网络图片已下载到本地', 'success', 4000)
 }
 
 function onTableInsert(snippet: string): void {
@@ -432,6 +557,8 @@ onMounted(async () => {
     if (dirty.value && !saving.value) void saveNow()
   }, 30000)
   await attachPasteDrop()
+  // e2e/调试句柄：渲染器与当前渲染状态（只读用途）
+  ;(window as any).__mwbRenderer = renderer
 })
 
 onBeforeUnmount(() => {
@@ -491,16 +618,26 @@ watch(deckId, () => {
       </div>
     </header>
 
-    <!-- 格式工具栏（M2） -->
+    <!-- 格式工具栏（M2/M3） -->
     <EditorToolbar
       v-if="ready"
       :disabled="!ready"
       @format="onToolbarFormat"
-      @open-image="openImageDialog('image')"
+      @open-image="openImageFromCursor"
       @open-table="tableDialogOpen = true"
+      @insert-chart="onInsertChart"
       @undo="editorRef?.undo()"
       @redo="editorRef?.redo()"
     />
+
+    <!-- 网络图片本地化提示条（M3，export-eng 的 RemoteImagesBanner；文件未就绪时隐藏） -->
+    <div v-if="ready && RemoteImagesBannerAsync" class="remote-banner-host">
+      <RemoteImagesBannerAsync
+        :deck-id="deck?.id || deckId"
+        :markdown="content"
+        @localized="onRemoteImagesLocalized"
+      />
+    </div>
 
     <div v-if="conflict" class="conflict-banner">
       <span>⚠️ 该演示文稿已在其他地方被修改，当前编辑内容尚未保存。</span>
@@ -653,15 +790,16 @@ watch(deckId, () => {
       </div>
     </div>
 
-    <!-- 图片插入器（export-eng，自包含 modal） -->
+    <!-- 图片插入器（export-eng，自包含 modal；M3 传入 initial-image 进入编辑模式） -->
     <ImageInsertDialogAsync
       v-if="imageDialogOpen && ImageInsertDialogAsync"
       :deck-id="deck?.id || deckId"
       :markdown="content"
       :current-page="page"
       :initial-mode="imageMode"
+      :initial-image="pendingImage"
       @insert="onImageInsert"
-      @close="imageDialogOpen = false"
+      @close="imageDialogOpen = false; pendingImage = null"
     />
 
     <!-- 表格插入器（export-eng，自包含 modal） -->

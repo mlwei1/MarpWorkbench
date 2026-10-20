@@ -18,9 +18,12 @@ import {
   buildImageSnippet,
   composePreviewMarkdown,
   countPages,
+  pageAtLine,
+  replaceImageAt,
   type BgFit,
   type BgLayout,
   type ImageMode,
+  type ParsedImage,
 } from './compose'
 import {
   ASSET_ACCEPT,
@@ -30,6 +33,7 @@ import {
   uploadAsset,
   type UploadedAsset,
 } from './upload'
+import { localizeRemoteImages, proxyImageUrl, proxyRemoteImagesInHtml } from './remoteImages'
 
 const props = withDefaults(
   defineProps<{
@@ -37,24 +41,40 @@ const props = withDefaults(
     markdown: string
     currentPage: number
     initialMode?: ImageMode
+    /** M3 编辑模式：传入 parseImageAtLine 的结果即可原位编辑 */
+    initialImage?: ParsedImage | null
   }>(),
-  { initialMode: 'image' }
+  { initialMode: 'image', initialImage: null }
 )
 
 const emit = defineEmits<{
-  insert: [result: { snippet: string; mode: ImageMode }]
+  insert: [
+    result: {
+      snippet: string
+      mode: ImageMode
+      /** 编辑模式：原位替换信息（父组件用 replaceImageAt 替换） */
+      edit?: { line: number; start: number; end: number }
+    },
+  ]
   close: []
 }>()
 
 // ---------------- 状态 ----------------
-const mode = ref<ImageMode>(props.initialMode === 'background' ? 'background' : 'image')
-const assetPath = ref<string | null>(null)
+/** 编辑模式（由父组件传入 initialImage 决定） */
+const editing = computed(() => !!props.initialImage && !!props.initialImage.raw)
+const initialImage = computed(() => props.initialImage || null)
+
+const mode = ref<ImageMode>(
+  props.initialImage?.kind ?? (props.initialMode === 'background' ? 'background' : 'image')
+)
+const assetPath = ref<string | null>(props.initialImage?.path || null)
 const fileName = ref('')
 const previewThumb = ref('')
 const pathInput = ref('')
 const uploadError = ref('')
 const warnText = ref('')
 const uploading = ref(false)
+const localizing = ref(false)
 
 const widthMode = ref<string>('50') // '' = 原图；25/50/75/100
 const bgLayout = ref<BgLayout>('full')
@@ -63,6 +83,8 @@ const fit = ref<BgFit>('cover')
 const transparency = ref(0) // 0 = 不透明（不写 opacity）
 const blur = ref(0)
 const grayscale = ref(false)
+/** 原图里 UI 不认识的修饰符（vertical/brightness 等），编辑保存时透传 */
+const extraModifiers = ref<string[]>([])
 
 const dragActive = ref(false)
 const fileInput = ref<HTMLInputElement>()
@@ -83,6 +105,52 @@ let resizeObserver: ResizeObserver | null = null
 // ---------------- 派生 ----------------
 const currentPageSafe = computed(() => Math.min(Math.max(props.currentPage || 1, 1), Math.max(pageCount.value, 1)))
 
+/** 编辑模式下该图片所在页（预览用） */
+const editPage = computed(() => {
+  if (!initialImage.value) return 1
+  try {
+    return pageAtLine(props.markdown || '', initialImage.value.line)
+  } catch {
+    return currentPageSafe.value
+  }
+})
+
+const dialogTitle = computed(() => (editing.value ? '编辑图片' : '插入图片'))
+const primaryLabel = computed(() => (editing.value ? '保存修改' : '插入图片'))
+
+/** 把 ParsedImage 的修饰符预填到各控件（M3 编辑模式） */
+function applyParsedImage(image: ParsedImage | null): void {
+  if (!image) return
+  mode.value = image.kind
+  assetPath.value = image.path
+  fileName.value = image.path.split('/').pop() || image.path
+  bgLayout.value = image.kind === 'background' ? image.bgLayout : 'full'
+  bgRatio.value = Math.min(70, Math.max(20, Math.round(image.bgRatio || 40)))
+  fit.value = image.fit || 'cover'
+  transparency.value =
+    image.opacity != null ? Math.min(100, Math.max(0, Math.round((1 - image.opacity) * 100))) : 0
+  blur.value = Math.min(10, Math.max(0, Math.round(image.blur || 0)))
+  grayscale.value = !!image.grayscale
+  extraModifiers.value = [...(image.extraModifiers || [])]
+  widthMode.value = percentToWidthMode(image)
+}
+
+/** px / 百分比宽度 → 下拉选项（25/50/75/100），差距过大时回退「原图」 */
+function percentToWidthMode(image: ParsedImage): string {
+  let percent = image.widthPercent
+  if (percent == null && image.widthPx != null && image.widthPx > 0) {
+    const base = slideWidth.value > 0 ? slideWidth.value : 1280
+    percent = (image.widthPx / base) * 100
+  }
+  if (percent == null) return ''
+  const options = [25, 50, 75, 100]
+  let best = options[0]
+  for (const opt of options) if (Math.abs(opt - percent) < Math.abs(best - percent)) best = opt
+  return Math.abs(best - percent) <= 12 ? String(best) : ''
+}
+
+applyParsedImage(props.initialImage || null)
+
 const snippet = computed<string>(() => {
   if (!assetPath.value) return ''
   const percent = mode.value === 'image' && widthMode.value !== '' ? Number(widthMode.value) : null
@@ -97,16 +165,21 @@ const snippet = computed<string>(() => {
     transparency: transparency.value,
     blur: blur.value,
     grayscale: grayscale.value,
+    alt: editing.value ? initialImage.value?.alt : undefined,
+    extraModifiers: extraModifiers.value,
   })
 })
 
-const canInsert = computed(() => !!snippet.value && !uploading.value)
+const canInsert = computed(() => !!snippet.value && !uploading.value && !localizing.value)
 
-const insertHint = computed(() =>
-  mode.value === 'background'
+const insertHint = computed(() => {
+  if (editing.value && initialImage.value) {
+    return `将原位替换第 ${initialImage.value.line} 行的图片（不新增行）`
+  }
+  return mode.value === 'background'
     ? `将插入到第 ${currentPageSafe.value} 页页首（页面级背景）`
     : '将插入到编辑器光标位置'
-)
+})
 
 const previewStyle = computed(() => ({
   width: '1280px',
@@ -183,13 +256,36 @@ async function usePathInput(): Promise<void> {
     return
   }
   if (/^https?:\/\//i.test(value)) {
-    warnText.value = '在线 URL 在离线环境中可能无法显示；建议上传到本地资产（assets/）'
-  } else if (!/^assets\//.test(value) && !/^(data:|blob:)/i.test(value)) {
+    // 网络图片：先尝试下载到本地 assets/（服务端 localize-images），失败回退原 URL
+    localizing.value = true
+    try {
+      const result = await localizeRemoteImages(props.deckId, `![mwb](${value})`)
+      const mapped = result.mapping?.[value]
+      if (mapped) {
+        assetPath.value = mapped
+        fileName.value = mapped.split('/').pop() || mapped
+        previewThumb.value = (await fetchAssetDataUrl(props.deckId, mapped)) || ''
+        warnText.value = '已下载到本地 assets/（离线可用）'
+        return
+      }
+      const reason = result.failed?.[0]?.reason || '下载失败'
+      warnText.value = `未能下载到本地（${reason}）；将插入原 URL，预览/导出时联网显示`
+    } catch (err: any) {
+      warnText.value = `未能下载到本地（${String(err?.message || err)}）；将插入原 URL，预览/导出时联网显示`
+    } finally {
+      localizing.value = false
+    }
+    assetPath.value = value
+    fileName.value = value.split('/').pop() || value
+    previewThumb.value = proxyImageUrl(value)
+    return
+  }
+  if (!/^assets\//.test(value) && !/^(data:|blob:)/i.test(value)) {
     warnText.value = '建议使用 assets/ 下的相对路径（随 deck 一起保存）'
   }
   assetPath.value = value
   fileName.value = value.split('/').pop() || value
-  previewThumb.value = /^(https?:|data:|blob:)/i.test(value) ? value : (await fetchAssetDataUrl(props.deckId, value)) || ''
+  previewThumb.value = (await fetchAssetDataUrl(props.deckId, value)) || ''
 }
 
 // ---------------- 预览 ----------------
@@ -216,18 +312,27 @@ async function buildPreview(): Promise<void> {
   previewError.value = ''
   try {
     const base = props.markdown || '# 预览\n\n（当前 deck 为空）'
-    const candidate = snippet.value
-      ? composePreviewMarkdown(props.markdown || '', snippet.value, mode.value, currentPageSafe.value).markdown
-      : base
+    let candidate = base
+    let page = currentPageSafe.value
+    if (editing.value && initialImage.value) {
+      // 编辑模式：在原位置替换后预览（不新增行）
+      candidate = replaceImageAt(base, initialImage.value, snippet.value || initialImage.value.raw)
+      page = editPage.value
+    } else if (snippet.value) {
+      const composed = composePreviewMarkdown(props.markdown || '', snippet.value, mode.value, currentPageSafe.value)
+      candidate = composed.markdown
+      page = composed.page
+    }
     const rendered = renderer.render(candidate)
-    let html = rendered.html
+    // 网络图片：预览时经同源代理显示（iframe 内不能带 header，代理允许 query token）
+    let html = proxyRemoteImagesInHtml(rendered.html)
     const inline = await inlineDeckAssetUrls(html, props.deckId)
     if (seq !== previewSeq) return
     if (inline.failed.length) {
       previewError.value = `有 ${inline.failed.length} 张图片未能加载（请确认 deck 中已上传对应资产）`
     }
     html = inline.content
-    const doc = buildDoc(html, rendered.css, currentPageSafe.value)
+    const doc = buildDoc(html, rendered.css, page)
     if (doc !== previewSrcdoc.value) previewSrcdoc.value = doc
   } catch (err: any) {
     if (seq === previewSeq) previewError.value = String(err?.message || err)
@@ -303,7 +408,11 @@ function onPaste(event: ClipboardEvent): void {
 
 function doInsert(): void {
   if (!canInsert.value) return
-  emit('insert', { snippet: snippet.value, mode: mode.value })
+  const edit =
+    editing.value && initialImage.value
+      ? { line: initialImage.value.line, start: initialImage.value.start, end: initialImage.value.end }
+      : undefined
+  emit('insert', { snippet: snippet.value, mode: mode.value, ...(edit ? { edit } : {}) })
   emit('close')
 }
 
@@ -333,6 +442,16 @@ onMounted(async () => {
     const rendered = renderer.render(base || '# 空')
     slideWidth.value = rendered.width || 1280
     pageCount.value = countPages(base || '')
+    // 编辑模式：按真实页宽重新换算宽度选项 + 加载当前图片缩略图
+    if (initialImage.value) {
+      applyParsedImage(initialImage.value)
+      const path = initialImage.value.path
+      if (/^https?:\/\//i.test(path)) {
+        previewThumb.value = proxyImageUrl(path)
+      } else {
+        previewThumb.value = (await fetchAssetDataUrl(props.deckId, path)) || ''
+      }
+    }
     updateScale()
     schedulePreview(0)
   } catch (err: any) {
@@ -353,8 +472,9 @@ onBeforeUnmount(() => {
   <div class="modal-mask" @click.self="requestClose">
     <div class="modal-panel insert-panel">
       <div class="modal-head">
-        <h2>插入图片</h2>
+        <h2>{{ dialogTitle }}</h2>
         <div class="head-actions">
+          <span v-if="editing && initialImage" class="muted small">第 {{ initialImage.line }} 行</span>
           <span class="muted small">第 {{ currentPageSafe }} / {{ pageCount }} 页</span>
           <button class="btn btn-ghost btn-sm" type="button" @click="requestClose">关闭</button>
         </div>
@@ -377,16 +497,16 @@ onBeforeUnmount(() => {
               @dragleave="onDragLeave"
               @drop.prevent="onDrop"
             >
-              <template v-if="uploading">
+              <template v-if="uploading || localizing">
                 <div class="spinner" />
-                <span>上传中…</span>
+                <span>{{ localizing ? '正在下载到本地…' : '上传中…' }}</span>
               </template>
               <template v-else-if="previewThumb || assetPath">
                 <img v-if="previewThumb" class="thumb" :src="previewThumb" alt="已选图片预览" />
                 <div class="thumb-meta">
                   <strong>{{ fileName || assetPath }}</strong>
                   <code class="small">{{ assetPath }}</code>
-                  <span class="muted small">点击可重新选择</span>
+                  <span class="muted small">{{ editing ? '当前图片 · 点击可更换' : '点击可重新选择' }}</span>
                 </div>
               </template>
               <template v-else>
@@ -409,6 +529,9 @@ onBeforeUnmount(() => {
             </div>
             <p v-if="uploadError" class="error-text small">{{ uploadError }}</p>
             <p v-if="warnText" class="warn-text small">{{ warnText }}</p>
+            <p v-if="editing" class="muted small">
+              保存后原位替换第 {{ initialImage?.line }} 行的图片，不会新增行。
+            </p>
           </div>
 
           <div class="block">
@@ -513,7 +636,8 @@ onBeforeUnmount(() => {
         <!-- 右：实时预览 -->
         <section class="insert-col preview">
           <div class="block-title">
-            预览：插入到第 {{ currentPageSafe }} 页后的效果
+            <template v-if="editing">预览：编辑后（第 {{ editPage }} 页，原位替换）</template>
+            <template v-else>预览：插入到第 {{ currentPageSafe }} 页后的效果</template>
             <span v-if="!assetPath" class="muted small">（选择图片后显示）</span>
           </div>
           <div ref="previewBox" class="preview-box" :style="previewWrapStyle">
@@ -537,7 +661,8 @@ onBeforeUnmount(() => {
             <code class="snippet">{{ snippet || '（请先选择图片）' }}</code>
           </div>
           <p class="muted small">
-            预览仅显示当前页；实际插入位置：普通图片 = 光标处，背景图 = 当前页页首。
+            <template v-if="editing">保存后仅替换该图片语法，前后文与行尾换行保持不变。</template>
+            <template v-else>预览仅显示当前页；实际插入位置：普通图片 = 光标处，背景图 = 当前页页首。</template>
           </p>
         </section>
       </div>
@@ -547,7 +672,7 @@ onBeforeUnmount(() => {
         <div class="foot-actions">
           <button class="btn btn-ghost" type="button" @click="requestClose">取消</button>
           <button class="btn btn-primary" type="button" :disabled="!canInsert" @click="doInsert">
-            插入图片
+            {{ primaryLabel }}
           </button>
         </div>
       </div>

@@ -1,6 +1,9 @@
 pub mod decks;
 pub mod export;
 pub mod lifecycle;
+pub mod proxy;
+#[path = "../remote_image.rs"]
+pub(crate) mod remote_image;
 pub mod settings;
 pub mod themes;
 
@@ -19,12 +22,16 @@ use crate::{assets, error::ApiError, state::AppState, util};
 /// 组装完整路由：`/api/*`（鉴权+JSON 限制）+ 其余路径走内嵌静态资源/SPA fallback。
 /// 说明：除 `GET /api/health` 外所有 `/api` 请求都要 `X-MWB-Token`（见 API_CONTRACT §0.3）。
 pub fn build_router(state: Arc<AppState>) -> Router {
+    // M3：启动时后台清理过期网络图片缓存（>7 天 / 残留临时文件），不阻塞启动
+    std::thread::spawn(remote_image::cleanup_cache_startup);
+
     let api = Router::new()
         .merge(lifecycle::router())
         .merge(settings::router())
         .merge(decks::router())
         .merge(themes::router())
         .merge(export::router())
+        .merge(proxy::router())
         .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
@@ -41,9 +48,19 @@ async fn auth_middleware(
     req: Request,
     next: Next,
 ) -> Response {
-    let path = req.uri().path().to_string();
+    let raw_path = req.uri().path().to_string();
+    // axum nest 在不同场景下中间件看到的 path 可能是 "/api/health" 或去前缀后的 "/health"，
+    // 两种形式都兼容判断（避免健康检查/图片代理被鉴权中间件误拦）。
+    let path = raw_path.clone();
+    let stripped = raw_path.strip_prefix("/api").unwrap_or(&raw_path).to_string();
+
     // 健康检查用于单实例探测，不鉴权
-    if path == "/api/health" {
+    if path == "/api/health" || stripped == "/health" {
+        return next.run(req).await;
+    }
+    // M3 网络图片代理：iframe 内 <img> 无法带请求头，仅该路由允许 query token
+    //（token 由 proxy handler 内校验；其余路由仍强制 X-MWB-Token 请求头）
+    if path == "/api/proxy/image" || stripped == "/proxy/image" {
         return next.run(req).await;
     }
 

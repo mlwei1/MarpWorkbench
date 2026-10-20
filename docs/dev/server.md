@@ -206,3 +206,50 @@ assets 上传下载/主题列表+导入+读取+更新+非法校验+删除/无 to
 5. 无单元测试/集成测试（M2 补：路径校验、主题解析、rev/409、打印页生成）。
 6. `web/dist`/`themes` 变更后需重新 release 构建才能进 exe（开发期用 `MWB_WEB_DIR` 免构建）。
 7. release exe 尚未加图标/版本信息资源（M4 发布项）。
+
+---
+
+## 9. M3：网络图片代理 + 一键本地化（2026-10-20）
+
+背景：老 `.md` 里直接写 `![](https://…)`，预览 iframe CSP 只允许 `self/data/blob`，离线要求 0 外网请求 → 由服务端代理拉取（不改 md），或一键下载进 deck `assets/`。
+
+### 9.1 接口
+
+| 方法 | 路径 | 鉴权 | 说明 |
+|---|---|---|---|
+| GET | `/api/proxy/image?url=<encoded>&token=<mwb-token>` | **仅 query token**（该路由是唯一允许 query token 的 API；token 在 handler 内比较，其余 `/api/*` 仍强制 `X-MWB-Token` 头） | 拉取远程图片并回传字节；用于预览/导出即时显示，不修改 md |
+| POST | `/api/decks/{id}/localize-images` | 常规 `X-MWB-Token` 头 | body `{urls:[string]}`（0–50）→ 下载到 `<deck>/assets/remote-<hash8>.<ext>` → `{mapping:{url:"assets/…"}, failed:[{url,reason}]}`；不改 markdown |
+
+- 成功响应头：`Content-Type`（按 content-type 归一化）、`Cache-Control: private, max-age=86400`、`X-Content-Type-Options: nosniff`。
+- 错误：非法 URL/私有网络/非图片/超限 → **400 BAD_REQUEST**；上游 404/410 → **404 NOT_FOUND**；超时/不可达/重定向异常/上游 5xx → **502 EXPORT_FAILED**（message 为中文可读原因）。
+- localize 并发 ≤4，单张失败不影响其它；返回的 `mapping` 只含成功项，`failed` 含失败原因。
+
+### 9.2 安全策略（SSRF 防护）
+
+- 仅 `http/https`；拒绝 URL 内含用户名/密码；拒绝 `localhost`/`*.localhost`/`*.local`/`0.0.0.0`/`::`。
+- **DNS 解析后逐 IP 校验**：loopback/私有(10/8、172.16/12、192.168/16)/link-local/unspecified/multicast/`fc00::/7`/`fe80::/10` 一律拒绝。
+- 最多 3 跳重定向，**每一跳重新做 scheme + 私有网络校验**；超时 10s；单张 ≤15MB；拒绝非图片 content-type（png/jpeg/gif/webp/svg/bmp/avif/ico）。
+- 文件名 sanitize（localize 固定 `remote-<sha256(url)前8位>.<ext>`）；日志不打印完整 URL/查询串；全局并发上限 6。
+- 测试开关：**`MWB_PROXY_ALLOW_PRIVATE=1` 放行本机/内网地址（仅测试用，不得用于生产）**。
+
+### 9.3 缓存
+
+- 路径：`%TEMP%\MarpWorkbench\imgcache\<sha256(url)>.<ext>`；TTL **7 天**；命中直接返回（不发起上游请求，测试用上游计数验证）。
+- **启动清理**：`routes::build_router` 启动时后台线程删除 >7 天缓存与残留 `.tmp-*` 文件（不阻塞启动；日志 `logs/server.log` 记录清理数量）。
+- 写缓存为同目录临时文件 + rename 原子替换；写失败不影响本次响应。
+
+### 9.4 HTTP 客户端选型（重要偏差说明）
+
+**本实现使用 Windows 系统自带 `curl.exe` 子进程**（位于 `%SystemRoot%\System32\curl.exe`，Win10 1809+/Win11 均内置），未新增 reqwest/ureq 依赖。原因：
+- 当前构建环境 crates.io 被一个已失效的本地代理（`127.0.0.1:7890`）阻断，`cargo add ureq/url` 无法拉取新 crate（已实测；rsproxy 镜像同样被该代理配置影响），无法保证可重复构建；
+- curl.exe 方案 **exe 体积零增长、无 TLS 依赖、无额外编译时间**，HTTPS 走系统 Schannel，行为可通过本仓库测试脚本验证。
+- 代码隔离在 `server/src/routes/remote_image.rs::run_curl()`；若后续网络恢复、要求纯 Rust 客户端，只需把该函数替换为 ureq/reqwest（接口/安全策略/缓存均不变）。运行时要求：Windows 10 1809+（系统自带 curl.exe）；缺失时返回可读错误「无法调用系统 curl.exe…」。
+
+### 9.5 体积与实测
+
+- release exe：**12.38 MB**（12,978,176 B）。增量主要来自内嵌 `web/dist` 10.20MB（其中 mermaid bundle 5.01MB、marp-core 3.67MB）；**M3 服务端代码无新增依赖，体积增量≈0**。
+- 自测脚本：`node spike/packaging/remote-image-test.mjs [--exe server/target/debug/MarpWorkbench.exe]`
+  - 起本地假"远程"图片服务（127.0.0.1）+ exe 带 `MWB_PROXY_ALLOW_PRIVATE=1`；覆盖代理 200/content-type、缓存命中（上游计数不增长）、401、非图片 400、超 15MB 400、ftp 400、302 跟随、重定向循环 502、404、私有网络拒绝、localize mapping/failed/落盘/不改 markdown/51 张 400。
+  - **结果：debug 与 release 均 22/22 通过**；M1 回归 `server/scripts/smoke.ps1` release **42/42 通过**。
+- 构建：`cargo build --release --offline`（当前网络下需 `--offline`；依赖未变，Cargo.lock 未改动）。
+- 构建网络备注：`spike/packaging/cargo-rsproxy.toml` 为 crates.io 直连被阻断时的备用源配置（仅归档参考，正常环境不需要）。

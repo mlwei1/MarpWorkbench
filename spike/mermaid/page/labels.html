@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>mermaid htmlLabels 对比（false vs true）</title>
+<style>
+  body { margin: 0; font: 13px/1.6 Consolas, monospace; background: #f5f7fa; }
+  #status { padding: 8px; white-space: pre-wrap; }
+  .box { display: inline-block; vertical-align: top; margin: 8px; background: #fff; border: 1px solid #d0d7de; }
+  .box h3 { margin: 4px 8px; font: 12px Consolas, monospace; color: #57606a; }
+  .box .canvas { width: 640px; height: 360px; display: flex; align-items: center; justify-content: center; }
+  .box svg { max-width: 620px; max-height: 340px; height: auto; width: auto; }
+</style>
+</head>
+<body>
+<div id="status">running…</div>
+<div id="off" class="box"><h3>htmlLabels: false</h3><div class="canvas"></div></div>
+<div id="on" class="box"><h3>htmlLabels: true</h3><div class="canvas"></div></div>
+<script src="/mermaid.browser.js"></script>
+<script>
+/* global MermaidBundle */
+;(function () {
+  window.__DONE__ = false
+  window.__RESULT__ = null
+  var checks = []
+  function check(name, ok, detail) { checks.push({ name: name, ok: !!ok, detail: detail === undefined ? '' : String(detail).slice(0, 400) }) }
+  function b64(str) {
+    var bytes = new TextEncoder().encode(str)
+    var bin = ''
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+    return btoa(bin)
+  }
+  var CODE = [
+    'graph LR',
+    '  A[开始] --> B{检查}',
+    '  B -->|通过| C[发布上线]',
+    '  B -->|不通过| D[修复]',
+  ].join('\n')
+
+  async function run() {
+    var result = { ok: false, checks: checks }
+    try {
+      var mermaid = window.MermaidBundle && window.MermaidBundle.default
+      check('MermaidBundle 已加载', !!mermaid)
+      var BASE = {
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'default',
+        fontFamily: 'Microsoft YaHei, PingFang SC, Segoe UI, sans-serif',
+        flowchart: { useMaxWidth: true },
+        suppressErrorRendering: true,
+      }
+      mermaid.initialize(Object.assign({}, BASE, { htmlLabels: false }))
+      var offSvg = (await mermaid.render('labels-off', CODE)).svg
+      mermaid.initialize(Object.assign({}, BASE, { htmlLabels: true }))
+      var onSvg = (await mermaid.render('labels-on', CODE)).svg
+      check('htmlLabels:false 输出无 foreignObject（纯 SVG text 标签）', offSvg.indexOf('<foreignObject') === -1)
+      check('htmlLabels:true 输出含 foreignObject（HTML 标签）', onSvg.indexOf('<foreignObject') !== -1)
+      check('两者都含 <text 或 HTML 文本（有标签）', /开始/.test(offSvg) || /开始/.test(onSvg), '')
+      check('htmlLabels:false 中文标签在 SVG 文本节点内', /<text[^>]*>[^<]*开始/.test(offSvg) || /<text[\s\S]{0,400}开始/.test(offSvg))
+      document.querySelector('#off .canvas').innerHTML = offSvg
+      document.querySelector('#on .canvas').innerHTML = onSvg
+      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r) }) })
+      result.sizes = { offBytes: offSvg.length, onBytes: onSvg.length, offForeignObjects: (offSvg.match(/<foreignObject/g) || []).length, onForeignObjects: (onSvg.match(/<foreignObject/g) || []).length, offTextElements: (offSvg.match(/<text/g) || []).length, onTextElements: (onSvg.match(/<text/g) || []).length }
+      window.__ARTIFACTS_B64__ = { off: b64(offSvg), on: b64(onSvg), code: CODE }
+      result.ok = checks.every(function (c) { return c.ok })
+    } catch (err) {
+      result.fatal = (err && (err.stack || err.message)) || String(err)
+    }
+    window.__RESULT__ = result
+    window.__DONE__ = true
+    document.title = result.ok ? 'OK' : 'FAIL'
+    document.getElementById('status').textContent = JSON.stringify(result, null, 2)
+  }
+  run()
+})()
+</script>
+</body>
+</html>

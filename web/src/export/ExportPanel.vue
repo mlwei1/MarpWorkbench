@@ -20,13 +20,15 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getToken, isMockMode } from '../api/client'
 import { hasDeckAssetRefs, inlineDeckAssetUrls } from '../insert/upload'
+import { hasRemoteImageRefs, inlineRemoteImageDataUrls } from '../insert/remoteImages'
 import type { RenderResult } from '../types'
 
 interface Props {
   deckId: string
   title: string
   markdown: string
-  render: () => RenderResult
+  /** M3：EditView.renderForExport 返回「同步对象 + thenable」，导出前 await 拿含 mermaid 的最终 html */
+  render: () => RenderResult | Promise<RenderResult>
   width?: number
   height?: number
   theme?: string
@@ -51,12 +53,14 @@ const browserName = ref('')
 const busy = computed(() => !['idle', 'done', 'error'].includes(stage.value))
 const mockMode = isMockMode()
 
-/** 页面尺寸：优先 props，其次从 render html 的 viewBox 推断 */
+/** 页面尺寸：优先 props，其次从 render html 的 viewBox 推断（render 可能是 thenable，同步属性可用） */
 const pageSize = computed(() => {
   try {
-    const res = props.render()
-    const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(res.html || '')
-    if (m) return { width: Math.round(parseFloat(m[1])), height: Math.round(parseFloat(m[2])) }
+    const res = props.render() as any
+    if (typeof res?.html === 'string') {
+      const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(res.html)
+      if (m) return { width: Math.round(parseFloat(m[1])), height: Math.round(parseFloat(m[2])) }
+    }
   } catch {
     /* ignore */
   }
@@ -65,7 +69,8 @@ const pageSize = computed(() => {
 
 const slideCount = computed(() => {
   try {
-    const res = props.render()
+    const res = props.render() as any
+    if (typeof res?.html !== 'string') return 0
     return (res.html.match(/data-marpit-svg/g) || []).length
   } catch {
     return 0
@@ -173,8 +178,9 @@ function saveBlob(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-function renderPayload() {
-  const res = props.render()
+async function renderPayload() {
+  // M3：render 可能是 thenable（EditView 用它返回 mermaid 渲染后的 html）
+  const res = (await Promise.resolve(props.render())) as RenderResult | null
   if (!res || !res.html) throw new Error('渲染结果为空：请先输入内容再导出')
   return {
     html: res.html,
@@ -186,27 +192,52 @@ function renderPayload() {
   }
 }
 
-/** 导出前把 deck 内图片资产（assets/x.png）内联成 dataURL：
- *  PDF/PPTX 的打印页走 file://，无法带 token 解析相对资产路径；HTML 单文件也需要自包含。
- *  失败不阻断导出，记录到 lastAssetWarning 在结果里提示。 */
+/** 导出前把图片资源内联成 dataURL：
+ *  ① deck 资产（assets/x.png）—— 打印页走 file://，无法带 token 取图；
+ *  ② 网络图片（http(s)://）—— 经 /api/proxy/image 取回（离线/打印页不能联网）。
+ *  失败不阻断导出，记录到 lastAssetWarning 在结果面板提示。 */
 let lastAssetWarning = ''
 async function prepareAssets<T extends { html: string }>(payload: T): Promise<T> {
   lastAssetWarning = ''
-  if (!hasDeckAssetRefs(payload.html)) return payload
-  progressText.value = '正在准备图片资源（内联到导出页）…'
-  try {
-    const res = await inlineDeckAssetUrls(payload.html, props.deckId, (done, total) => {
-      progressText.value = `正在准备图片资源（${done}/${total}）…`
-    })
-    if (res.failed.length) {
-      const names = res.failed.slice(0, 2).join('、') + (res.failed.length > 2 ? '…' : '')
-      lastAssetWarning = `有 ${res.failed.length} 张本地图片未能读取（导出中可能缺失）：${names}`
+  const warnings: string[] = []
+  let html = payload.html
+
+  if (hasDeckAssetRefs(html)) {
+    progressText.value = '正在准备图片资源（内联到导出页）…'
+    try {
+      const res = await inlineDeckAssetUrls(html, props.deckId, (done, total) => {
+        progressText.value = `正在准备图片资源（${done}/${total}）…`
+      })
+      if (res.failed.length) {
+        const names = res.failed.slice(0, 2).join('、') + (res.failed.length > 2 ? '…' : '')
+        warnings.push(`有 ${res.failed.length} 张本地图片未能读取（导出中可能缺失）：${names}`)
+      }
+      html = res.content
+    } catch (err: any) {
+      warnings.push(`本地图片内联失败：${String(err?.message || err)}`)
     }
-    return { ...payload, html: res.content }
-  } catch (err: any) {
-    lastAssetWarning = `图片内联失败：${String(err?.message || err)}`
-    return payload
   }
+
+  if (hasRemoteImageRefs(html)) {
+    progressText.value = '正在通过本地代理内联网络图片…'
+    try {
+      const remote = await inlineRemoteImageDataUrls(html, (done, total) => {
+        progressText.value = `正在内联网络图片（${done}/${total}）…`
+      })
+      html = remote.content
+      if (remote.failed.length) {
+        const first = remote.failed[0]
+        warnings.push(
+          `有 ${remote.failed.length} 张网络图片未能下载（导出中可能缺失）：${first?.reason || '网络不可达'}`
+        )
+      }
+    } catch (err: any) {
+      warnings.push(`网络图片内联失败：${String(err?.message || err)}`)
+    }
+  }
+
+  if (warnings.length) lastAssetWarning = warnings.join('；')
+  return { ...payload, html }
 }
 
 function resetState() {
@@ -245,7 +276,7 @@ async function startExport() {
 async function exportPdf() {
   progress.value = 15
   progressText.value = '正在生成打印页…'
-  const payload = await prepareAssets(renderPayload())
+  const payload = await prepareAssets(await renderPayload())
   progress.value = 35
   progressText.value = '正在调用本机 Chrome/Edge 打印（通常 2–8 秒）…'
   const r = await apiJson<{ fileUrl: string; bytes: number; pages: number; ms: number; browser: string }>(
@@ -268,7 +299,7 @@ async function exportPdf() {
 async function exportHtml() {
   progress.value = 25
   progressText.value = '正在生成单文件 HTML…'
-  const payload = await prepareAssets(renderPayload())
+  const payload = await prepareAssets(await renderPayload())
   const r = await apiJson<{ fileUrl: string; bytes: number; ms: number }>('/api/export/html', payload)
   progress.value = 75
   progressText.value = '正在下载 HTML…'
@@ -283,7 +314,7 @@ async function exportHtml() {
 }
 
 async function exportPptx() {
-  const render = await prepareAssets(renderPayload())
+  const render = await prepareAssets(await renderPayload())
   const count = slideCount.value
   if (!count) throw new Error('没有可导出的幻灯片：请用 --- 分页')
 
