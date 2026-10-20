@@ -19,6 +19,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { getToken, isMockMode } from '../api/client'
+import { hasDeckAssetRefs, inlineDeckAssetUrls } from '../insert/upload'
 import type { RenderResult } from '../types'
 
 interface Props {
@@ -185,6 +186,29 @@ function renderPayload() {
   }
 }
 
+/** 导出前把 deck 内图片资产（assets/x.png）内联成 dataURL：
+ *  PDF/PPTX 的打印页走 file://，无法带 token 解析相对资产路径；HTML 单文件也需要自包含。
+ *  失败不阻断导出，记录到 lastAssetWarning 在结果里提示。 */
+let lastAssetWarning = ''
+async function prepareAssets<T extends { html: string }>(payload: T): Promise<T> {
+  lastAssetWarning = ''
+  if (!hasDeckAssetRefs(payload.html)) return payload
+  progressText.value = '正在准备图片资源（内联到导出页）…'
+  try {
+    const res = await inlineDeckAssetUrls(payload.html, props.deckId, (done, total) => {
+      progressText.value = `正在准备图片资源（${done}/${total}）…`
+    })
+    if (res.failed.length) {
+      const names = res.failed.slice(0, 2).join('、') + (res.failed.length > 2 ? '…' : '')
+      lastAssetWarning = `有 ${res.failed.length} 张本地图片未能读取（导出中可能缺失）：${names}`
+    }
+    return { ...payload, html: res.content }
+  } catch (err: any) {
+    lastAssetWarning = `图片内联失败：${String(err?.message || err)}`
+    return payload
+  }
+}
+
 function resetState() {
   errorText.value = ''
   errorDetail.value = ''
@@ -193,6 +217,7 @@ function resetState() {
   progressText.value = ''
   fallbackMode.value = false
   browserName.value = ''
+  lastAssetWarning = ''
 }
 
 async function startExport() {
@@ -220,7 +245,7 @@ async function startExport() {
 async function exportPdf() {
   progress.value = 15
   progressText.value = '正在生成打印页…'
-  const payload = renderPayload()
+  const payload = await prepareAssets(renderPayload())
   progress.value = 35
   progressText.value = '正在调用本机 Chrome/Edge 打印（通常 2–8 秒）…'
   const r = await apiJson<{ fileUrl: string; bytes: number; pages: number; ms: number; browser: string }>(
@@ -236,13 +261,14 @@ async function exportPdf() {
   progress.value = 100
   progressText.value = '完成'
   resultText.value = `PDF 已下载：${fileName}（${r.pages} 页 / ${fmtBytes(r.bytes)} / ${r.ms} ms，浏览器：${r.browser}）`
+  if (lastAssetWarning) resultText.value += `\n注意：${lastAssetWarning}`
   emit('done', fileName)
 }
 
 async function exportHtml() {
   progress.value = 25
   progressText.value = '正在生成单文件 HTML…'
-  const payload = renderPayload()
+  const payload = await prepareAssets(renderPayload())
   const r = await apiJson<{ fileUrl: string; bytes: number; ms: number }>('/api/export/html', payload)
   progress.value = 75
   progressText.value = '正在下载 HTML…'
@@ -252,11 +278,12 @@ async function exportHtml() {
   progress.value = 100
   progressText.value = '完成'
   resultText.value = `HTML 已下载：${fileName}（${fmtBytes(r.bytes)} / ${r.ms} ms，双击可离线播放）`
+  if (lastAssetWarning) resultText.value += `\n注意：${lastAssetWarning}`
   emit('done', fileName)
 }
 
 async function exportPptx() {
-  const render = renderPayload()
+  const render = await prepareAssets(renderPayload())
   const count = slideCount.value
   if (!count) throw new Error('没有可导出的幻灯片：请用 --- 分页')
 
@@ -311,6 +338,7 @@ async function exportPptx() {
   const modeText = fallbackMode.value ? '降级截图版（快速版）' : 'CDP 原生长截图版'
   resultText.value = `PPTX 已下载：${fileName}（${images.length} 页 / 16:9 / 图片版，${modeText}；不可逐字编辑，但版式与预览一致）`
   if (fallbackMode.value && capture.reason) resultText.value += `\n降级原因：${capture.reason}`
+  if (lastAssetWarning) resultText.value += `\n注意：${lastAssetWarning}`
   emit('done', fileName)
 }
 

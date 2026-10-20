@@ -58,8 +58,9 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     return mockRequest<T>(path, init)
   }
 
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...((init.headers as Record<string, string>) || {}),
   }
   if (token) headers['X-MWB-Token'] = token
@@ -107,6 +108,26 @@ export async function apiText(path: string, init: RequestInit = {}): Promise<str
     throw new ApiError('INTERNAL', `请求失败（HTTP ${res.status}）`, res.status)
   }
   return res.text()
+}
+
+/** 二进制响应（图片等资产，需要带 X-MWB-Token） */
+export async function apiBlob(path: string): Promise<Blob> {
+  if (mockMode) {
+    const { mockBlob } = await import('./mock')
+    return mockBlob(path)
+  }
+  const headers: Record<string, string> = {}
+  if (token) headers['X-MWB-Token'] = token
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, { headers })
+  } catch {
+    throw new ApiError('NETWORK', '无法连接本地 MarpWorkbench 服务，请确认程序仍在运行', 0)
+  }
+  if (!res.ok) {
+    throw new ApiError('NOT_FOUND', `资源加载失败（HTTP ${res.status}）`, res.status)
+  }
+  return res.blob()
 }
 
 /** 二进制资源（图片等）的 URL 辅助 */

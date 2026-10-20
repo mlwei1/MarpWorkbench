@@ -12,7 +12,8 @@
     "dev:server": "cargo run --manifest-path server/Cargo.toml",
     "smoke": "node scripts/smoke.mjs",
     "verify:smoke": "node scripts/smoke.mjs",
-    "verify:visual": "node scripts/visual-e2e.mjs --embedded"
+    "verify:visual": "node scripts/visual-e2e.mjs --embedded",
+    "verify:m2": "node scripts/visual-e2e-m2.mjs"
   },
   "engines": {
     "node": ">=20"

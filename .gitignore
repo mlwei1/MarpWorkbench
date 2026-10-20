@@ -1,4 +1,4 @@
-﻿# deps & build outputs
+# deps & build outputs
 node_modules/
 dist/
 release/
@@ -14,6 +14,8 @@ spike/**/target/
 spike/**/out/
 spike/**/shots/
 spike/visual/
+spike/visual-m2/
+spike/outline/
 spike/**/downloads/
 # runtime
 *.log

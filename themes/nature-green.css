@@ -1,0 +1,327 @@
+/*
+ * @theme nature-green
+ * @name 自然绿
+ * @tags 自然,环保,教育,绿色,清新,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：环保/可持续主题、自然科普、教育课程、健康生活分享等场合。
+ * 设计：浅薄荷底 + 森林绿主色 + 深墨绿文字；标题带叶片形装饰块；
+ *       封面为深林渐变 + 叶形装饰；代码块深林底配黄绿高亮。全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 64px 82px 76px;
+  background: #f5fbf5;
+  background-image: linear-gradient(180deg, #edf9ef 0%, #f5fbf5 34%);
+  color: #1b3a2a;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  line-height: 1.62;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页右上角两片叶子（纯 CSS 形状） */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 44px;
+  right: 76px;
+  width: 46px;
+  height: 46px;
+  background: #bbf7d0;
+  border-radius: 0 100% 0 100%;
+  transform: rotate(-18deg);
+  box-shadow: 28px 26px 0 -6px rgba(134, 239, 172, 0.55);
+  pointer-events: none;
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.48em;
+  color: #052e16;
+  font-size: 2.06em;
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -0.01em;
+}
+
+section h2 {
+  margin: 0 0 0.55em;
+  padding-left: 0.5em;
+  border-left: 6px solid #16a34a;
+  color: #14532d;
+  font-size: 1.48em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+section h3 {
+  margin: 0.72em 0 0.32em;
+  color: #15803d;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #294a36;
+}
+
+section strong {
+  color: #14532d;
+}
+
+section em {
+  color: #4d7c0f;
+}
+
+section a {
+  color: #15803d;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.25em;
+}
+
+section li::marker {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+/* ---------- 封面页 ---------- */
+section.lead {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 88px 100px;
+  background: #052e16;
+  background-image:
+    radial-gradient(680px 380px at 86% 18%, rgba(163, 230, 53, 0.2), transparent 64%),
+    radial-gradient(560px 320px at 8% 94%, rgba(74, 222, 128, 0.22), transparent 66%),
+    linear-gradient(135deg, #052e16 0%, #14532d 55%, #166534 100%);
+  color: #ffffff;
+}
+
+section.lead h1 {
+  margin: 0 0 0.38em;
+  color: #ffffff;
+  font-size: 2.5em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+section.lead h2 {
+  padding: 0;
+  border: 0;
+  color: #bbf7d0;
+  font-size: 1.14em;
+  font-weight: 400;
+}
+
+section.lead h3 {
+  color: #d9f99d;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #dcfce7;
+}
+
+section.lead a {
+  color: #ffffff;
+}
+
+/* 封面左下三片叶子装饰 */
+section.lead::before {
+  content: '';
+  position: absolute;
+  left: 100px;
+  bottom: 78px;
+  width: 54px;
+  height: 54px;
+  background: rgba(163, 230, 53, 0.85);
+  border-radius: 0 100% 0 100%;
+  transform: rotate(-24deg);
+  box-shadow:
+    46px 18px 0 -6px rgba(134, 239, 172, 0.8),
+    92px 40px 0 -12px rgba(74, 222, 128, 0.7);
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.36em;
+  border-radius: 5px;
+  background: #dcfce7;
+  color: #14532d;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.86em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border-radius: 12px;
+  background: #0b1f12;
+  box-shadow: 0 10px 26px rgba(5, 46, 22, 0.22);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #d9fbe4;
+  font-size: 0.62em;
+}
+
+/* 深林代码块高亮 token */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #a3e635; font-weight: 600; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #86efac; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #6b8f78; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #fcd34d; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #7dd3fc; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #fdba74; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.45;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 1px solid #bbf7d0;
+  background: #dcfce7;
+  color: #14532d;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 11px 20px;
+  border: 1px solid #d3f0da;
+  color: #294a36;
+}
+
+section table tr:nth-child(even) td {
+  background: #f0fdf4;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 18px 26px;
+  border-left: 6px solid #16a34a;
+  border-radius: 0 10px 10px 0;
+  background: #f0fdf4;
+  color: #166534;
+  font-size: 0.94em;
+  font-style: normal;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #166534;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 28px;
+  left: 82px;
+  right: 82px;
+  margin: 0;
+  padding: 0 0 6px;
+  border-bottom: 1px solid #d3f0da;
+  color: #5f8f6f;
+  font-size: 0.54em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 26px;
+  left: 82px;
+  margin: 0;
+  color: #6b9a7a;
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+}
+
+section::after {
+  bottom: 22px;
+  right: 82px;
+  color: #15803d;
+  font-size: 0.52em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+section.lead > header,
+section.lead > footer {
+  border-bottom: 0;
+  color: rgba(220, 252, 231, 0.78);
+}
+
+section.lead::after {
+  color: rgba(220, 252, 231, 0.78);
+}
+
+/* ---------- 排版增强：标题自动平衡换行 ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}
+
+/* ---------- contract-compat resets (do not remove) ---------- */
+/* 1) marp default theme gives <tr> a white background/border; clear it so theme bg shows. */
+section table tr {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 2) Fixed 720px canvas + flex column: never let pre/table shrink and clip code content. */
+section > * {
+  flex-shrink: 0;
+}
+
+/* 3) default theme zebra rows (tr:nth-child(2n)) must not paint light rows on dark themes. */
+section table tr,
+section table tr:nth-child(2n) {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 4) highlight.js subst token: inherit theme code color (default vars are light-theme oriented). */
+section pre code .hljs-subst {
+  color: inherit;
+}

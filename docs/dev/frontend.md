@@ -167,6 +167,94 @@ node web/scripts/verify-ui.mjs --url http://127.0.0.1:8899 --token <hex token>
 - 首页「新建」提供空白/示例两个入口（`title` 模板已在 API 层支持，UI 暂未加按钮）。
 - 主题画廊的 hover 试穿已接 `preview/preview-end`（当前实现为预览覆盖渲染，不落盘）。
 - 导出质量/进度依赖 export-eng 面板与服务端；mock 模式下导出不可用（预期）。
-- 演讲者模式、大纲面板、图片粘贴、历史快照为 M2/M3 范围。
+- 演讲者模式、历史快照为 M3 范围；大纲/缩略图、图片粘贴、属性面板、格式工具栏已在 M2 完成（见 §10）。
 - **真实 Rust 服务联调已通过**（release exe + Chrome 自动化，见 §7 表格）；Lead 的 visual-e2e 唯一失败项为断言口径问题（详见 §7），非产品缺陷。
 - 契约偏差记录：实测 `GET /api/health` 在服务端也要求 `X-MWB-Token`（契约 §0.3 写的是唯一免鉴权端点）；前端 `api()` 始终带 token，因此不影响使用，待 Lead 与 server-core 决定是否放宽。
+
+---
+
+## 10. M2 增量：属性面板 / 工具栏 / 插入器 / 左右侧栏（frontend-core）
+
+> 契约：[`docs/UI_CONTRACT_M2.md`](../UI_CONTRACT_M2.md)（§2.2/§2.7/§2.8 归本文件 owner）｜ 本文只记录"怎么实现、怎么验"
+
+### 10.1 新增/修改文件（都在 frontend-core 写范围）
+
+| 文件 | 说明 |
+| --- | --- |
+| `web/src/marp/frontmatter.ts` | **M2 扩展**：通用 front-matter 读写、页内指令、页首插入、图片指令解析/替换（详见 10.2） |
+| `web/src/editor/CodeMirrorEditor.vue` | 新增契约 §2.7 EditorApi（focus/getCursorLine/setCursor/scrollToLine/insertText/format/undo/redo）；外部 modelValue 更新改为**最小 diff**，属性面板改 markdown 时光标/滚动不跳 |
+| `web/src/editor/types.ts` | 共享 `FormatCommand` / `EditorApi` 类型（避免从 .vue 导出类型） |
+| `web/src/insert/EditorToolbar.vue` | 格式工具栏（H1/H2/H3、B/I/S、列表/引用、行内代码/代码块/公式/分页、图片/表格、撤销/重做）；emit `format / openImage / openTable / undo / redo` |
+| `web/src/inspector/PropertyInspector.vue` | 属性面板（契约 §2.2 全部字段）；所有操作只产出标准 Marp Markdown |
+| `web/src/views/EditView.vue` | 新布局：顶部工具栏 + 左大纲栏 + 中编辑/预览 + 右属性栏；挂载全部 M2 组件；粘贴/拖拽图片快捷路径 |
+| `web/src/preview/PreviewPane.vue` | M2：`assets/x.png` 相对图片在预览里解析为 blob/data URL（`<base href="about:blank">` 防 404；CSP 不变） |
+| `web/src/integrations/optionalComponents.ts` | 增加 SlideNavigator / ImageInsertDialog / TableInsertDialog / ThemeEditor 的 glob 懒加载 + pasteDrop 动态加载 |
+| `web/src/api/client.ts`、`web/src/api/index.ts`、`web/src/api/mock.ts`、`web/src/types.ts` | `uploadAsset`（multipart，FormData 不手写 Content-Type）、`fetchDeckAssetBlob`、主题 CRUD API；mock 模式补齐用户主题 CRUD 与图片资产（dataURL 存储，dev 单跑可验证） |
+| `web/src/styles/main.css` | M2 布局：`.editor-body` 四区网格、侧栏折叠过渡、1280–1920 适配、≤1080 隐藏侧栏 |
+
+### 10.2 frontmatter.ts 新增函数（自测脚本：`web/scripts/test-frontmatter.ts`）
+
+```ts
+getFrontMatterData(md)                                   // 扁平字段
+setFrontMatterField(md, key, value|null)                  // null 删除；保留未知字段/顺序/注释
+setSlideDirective(md, page, key, value|null)              // 页首 <!-- _key: value -->（支持多行注释块）
+getSlideDirective(md, page, key)
+pageStartLine(md, page)                                   // 页内容第一行（1-based，跳过页首空行/指令）
+insertAtPageStart(md, page, snippet)                      // 插到已有页首指令之后、正文之前
+findImageDirectives(md)                                   // [{page, raw, path, modifiers[], offset, line}]
+replaceImageDirective(md, offset, newRaw|null)
+getPageBackground(md, page) / buildImageDirective(path, modifiers)
+```
+
+- 值含 `:`、`#`、`*` 等会被自动加引号；header/footer 换行会被合并成单行（避免生成非法 YAML）。
+- 代码围栏内的 `---` 不会被误判为分页；删除页内指令后会清理连续空行。
+- 自测：`node --experimental-strip-types web/scripts/test-frontmatter.ts`（45+ 断言，全部通过）。
+
+### 10.3 属性面板行为要点
+
+- 主题下拉 + 「主题画廊」「编辑主题」；尺寸 16:9/4:3；页码全局 Toggle + 本页三态；页眉/页脚全局输入 + 「仅本页」覆盖 + 清空；全局 class（lead/invert/center + 自定义）；本页 class（单选 + 自定义 + 清除）；本页背景图（适配 cover/contain/fit + 透明度滑杆 + 更换/移除）。
+- 文本输入在 **change/Enter（失焦）** 时写入，避免每敲一个字重排全文/来回同步；chips/开关/滑杆即时写入。
+- 每次修改只 emit 一次 `update(markdown)`；EditView 侧：`content = md` → 800ms 防抖保存 → 重渲染；CodeMirror 最小 diff 保持光标。
+- 空 deck 提供「补齐 Marp 基础设置」（写入 `marp: true`）。
+- 页眉输入含换行会被 frontmatter 合并单行；本页 class 写入 `<!-- _class: xxx -->`（页首）。
+
+### 10.4 图片相关
+
+- 上传：`uploadAsset(deckId, file)`（multipart，字段 `file`）→ Markdown 只写**相对路径** `assets/x.png`（标准 Marp，可拷回 VS Code/marp-cli）。
+- 预览：`PreviewPane` 用 `fetchDeckAssetBlob`（带 token）取回 blob → objectURL，替换 iframe 内 `<img src="assets/...">` 与 `<figure style="background-image:url(assets/...)">`（marp 背景图渲染在 section 内 figure 上）；mock 模式直接用 dataURL。Markdown 不变。
+- 快捷路径：`attachImagePasteDrop(editorPane, {onFiles})`（export-eng 的 pasteDrop.ts，动态 import，文件缺失时安全跳过）→ 上传 → 插入图片；**marp-core 4.4 不支持 `![w:60%]`（百分比不生效）**，改用 `pasteDrop.pasteImageSnippet(path)`（换算成 `![w:768px]`）。
+- 导出侧（export-eng）已在打印/PPTX/HTML 前内联 deck 资产，本前端无需处理。
+
+### 10.5 新组件挂载约定（全部 `import.meta.glob` + v-if 容错，文件缺失不炸构建）
+
+| 组件 | props / emit |
+| --- | --- |
+| `web/src/outline/SlideNavigator.vue` | props：`markdown/html/css/pageCount/currentPage/width/height`；emit `jump(page, line?)` → `editor.setCursor(line ?? pageStartLine(page))` + 滚动 |
+| `web/src/insert/ImageInsertDialog.vue` | props：`deckId/markdown/currentPage/initialMode`；emit `insert({snippet, mode})`/`close`；image → 光标插入，background → `insertAtPageStart` |
+| `web/src/insert/TableInsertDialog.vue` | props：`markdown/currentPage`；emit `insert(snippet)`/`close` → 光标处 block 插入 |
+| `web/src/themes/ThemeGallery.vue` | props 增加 `initialEditTheme`（属性面板「编辑主题」→ 自动打开 ThemeEditor）；emit 增加 `changed` → EditView 调 `refreshThemes()` 并重渲染 |
+| `web/src/themes/ThemeEditor.vue` | 由 ThemeGallery 内部挂载（EditView 不直接挂） |
+
+### 10.6 布局与交互
+
+- 顶栏新增「◧ 大纲」「属性 ◨」折叠按钮；折叠状态存 `localStorage['mwb.edit.leftOpen'|'mwb.edit.rightOpen']`（'0' = 折叠）。
+- 左栏 240–300px（大纲/幻灯片 tab 由 SlideNavigator 自管）；右栏 270–300px；中间编辑/预览对半，拖宽自适应；≤1080 宽自动隐藏两侧栏。
+- 工具栏固定顶栏下方；状态栏保留页码/rev/快捷键提示/版本。
+- `Ctrl+B` 在编辑区加粗；`Ctrl+S`/`Ctrl+P` 逻辑不变。
+
+### 10.7 M2 验收实测
+
+| 场景 | 结果 |
+| --- | --- |
+| `pnpm --dir web build` | ✅ 通过（含 outline/insert/themes 队友组件；EditView chunk ~652KB，懒加载分包正常） |
+| 对真实 Rust release exe（`MWB_WEB_DIR=web/dist`，Chrome 155）跑 `node web/scripts/verify-ui.mjs` | ✅ **33/33 步通过**：M1 全部项 + 工具栏(17 按钮)/左栏 SlideNavigator/属性面板/加粗/尺寸写回+viewBox 变 960×720/页眉/全局 class/本页 class/图片上传+背景图 `![bg left:40%]`/背景图预览 blob 解析/表格 3×3 GFM/粘贴图片快捷插入/侧栏折叠记忆/零外网请求 |
+| Lead `node scripts/visual-e2e.mjs` | ✅ **13/13**（15 套主题出现在画廊，缩略图主题渲染、切换写回、PPTX 2.8MB 导出均通过） |
+| `node web/scripts/verify-theme-editor.mjs <url> <token>` | ✅ 属性面板「编辑主题」→ 画廊打开 → ThemeEditor 自动打开（CSS 编辑器 + 实时预览 + 「新建主题」）；15 个主题出现在下拉 |
+| 截图 | `%TEMP%\mwb-verify\edit-m2.png`（新布局）、`edit-m2-after.png`（背景图/表格/页眉/class 生效）、`%TEMP%\mwb-theme-editor\theme-editor.png` |
+
+### 10.8 M2 已知边界
+
+- 属性面板文本输入是「失焦/回车生效」（不是每次按键），避免与编辑器双向同步抖动；chips/开关/滑杆即时。
+- 「编辑主题」实际动作 = 打开主题画廊并传 `initialEditTheme`，由 ThemeGallery 内部挂载 ThemeEditor；若主题组件未就绪则 toast 提示。
+- 主题编辑器保存后由 ThemeGallery emit `changed` → 前端刷新主题列表；若自定义主题 CSS 变化，当前 deck 需重新渲染（`refreshThemes()` 后已自动 doRender）。
+- 图片预览的 objectURL 未显式 revoke（数量小；后续可加 LRU 清理）。

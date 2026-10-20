@@ -350,3 +350,108 @@ release exe：`server/target/release/MarpWorkbench.exe` = **7,478,272 B（约 7.
 临时文件清理实测：正常跑完 E2E 后 `%TEMP%\MarpWorkbench\` 下无 `pdf-*` / `chrome-profile-*` / `cdp-profile-*`
 残留（截图目录按 10 分钟 TTL 保留，供前端拉图）；被强杀进程留下的旧 profile 会在下次导出时按 1 小时 TTL 清理。
 删除采用「kill 后等进程退出 + 最多 5 次重试」，避免 Windows 文件句柄未释放导致删除失败。
+
+---
+
+## 13. M2 插入器（图片 / 表格 / 粘贴拖拽）
+
+> 目标（用户原话）：*"图片插入优化（包括使用 bg 功能、透明的功能、左置右置占比功能）…让不懂 Markdown 的用户也能轻松使用"*。
+> 契约：`docs/UI_CONTRACT_M2.md` §2.3 / §2.4 / §2.7。owner：export-eng。写范围：`web/src/insert/**`（不含 `EditorToolbar.vue`）。
+
+### 13.1 文件与职责
+
+| 文件 | 职责 |
+|---|---|
+| `web/src/insert/compose.ts` | 纯函数：图片/表格 snippet 生成、页切分（跳过 front-matter/代码围栏）、页首/页尾插入、光标行→页码、预览候选 md 合成 |
+| `web/src/insert/upload.ts` | 上传（复用 `api/index.ts::uploadAsset`，mock 模式本地 dataURL 兜底）、资产下载、**`inlineDeckAssetUrls()` 资产内联**（预览/导出共用） |
+| `web/src/insert/ImageInsertDialog.vue` | 图片插入对话框：选择/拖拽/粘贴上传 + 普通图/背景图选项 + 实时隔离预览 + emit `{snippet, mode}` |
+| `web/src/insert/TableInsertDialog.vue` | 表格插入对话框：12×12 网格选行列、表头/对齐/首列加粗、单元格编辑、HTML 预览、emit `snippet` |
+| `web/src/insert/pasteDrop.ts` | `attachImagePasteDrop(el,{onFiles}) → detach`：只拦截图片粘贴/拖拽，非图片放行；`pasteImageSnippet()` 默认宽度片段 |
+
+组件 props/emits 严格按契约（`ImageInsertDialog`: `{deckId, markdown, currentPage, initialMode?}` → `insert({snippet,mode})`/`close`；
+`TableInsertDialog`: `{markdown, currentPage}` → `insert(snippet)`/`close`），EditView 由 marp-tech 用 `import.meta.glob` 懒加载挂载，
+**不需要再套 modal 容器**（对话框自带 `modal-mask`）。
+
+### 13.2 UI 选项 → 生成语法（全部为标准 Marp Markdown）
+
+| UI 操作 | 生成 Markdown | 说明 |
+|---|---|---|
+| 普通图片 · 原图 | `![](assets/x.png)` | 不写宽度 |
+| 普通图片 · 25/50/75/100% | `![w:320px](assets/x.png)`（50% → 640px） | **marp-core 4.4 不支持 `w:50%` 百分比**，按当前页宽（16:9=1280px）换算成 px，仍是标准语法 |
+| 背景图 · 整页 | `![bg](assets/x.png)` | 默认 cover |
+| 背景图 · 左/右 + 占比 | `![bg left:40%](assets/x.png)` | 占比滑杆 20–70%，默认 40；右侧同理 `bg right:30%` |
+| 背景图 · 适配 contain/fit | `![bg contain](...)` / `![bg fit](...)` | cover 为默认，不写 |
+| 透明度 50% | `opacity:.5` | 0 = 不透明（不写）；100 = `opacity:0` |
+| 模糊 5px / 灰度 | `blur:5px` / `grayscale` | 普通图片与背景图都支持（Marpi 滤镜） |
+| 3×3 表格 + 居中 + 首列加粗 | GFM 表格（`:---:` 对齐行，首列数据 `**…**`） | 前后自动空行，插入后为普通 GFM |
+| 粘贴/拖拽图片（快捷路径） | `![w:768px](assets/x.png)` | 约 60% 宽（同样换算 px），EditView 用 `pasteImageSnippet()` |
+
+**实测依据**（`spike/export/scripts/verify-compose.mjs`，marp-core 4.4.0，15/15 通过）：
+- `![w:640px]` → `<img style="width:640px">`；`![w:50%]` **不产生任何样式**（已改为 px）；
+- `![bg left:40% opacity:.5 blur:5px grayscale]` → `<section data-marpit-advanced-background-split="left">` +
+  `<figure style="background-image:url(...);filter:opacity(.5) blur(5px) grayscale(1)">`；
+- `contain`/`fit` → `background-size:contain`；GFM 对齐行 → `<th style="text-align:center">` 生效；
+- 分页工具不会把代码围栏里的 `---` 当分页；页首插入不会打断 `<!-- _class: lead -->`；页尾插入自动加空行，
+  避免 `图片行\n---` 被 markdown 解析成 setext 标题（回归用例已覆盖）。
+
+### 13.3 预览与资产（关键坑 + 解决）
+
+- 资产读取接口 `GET /api/decks/:id/assets/:name` 需要 `X-MWB-Token` 头，`<img src>`/iframe 无法携带 →
+  对话框预览在渲染候选 md 后调用 `inlineDeckAssetUrls(html, deckId)`，把 `assets/x.png` 换成 dataURL，
+  再注入**独立 iframe**（`div.marpit>svg` 只显示当前页 + `scale` 适配；样式完全隔离，不污染主界面）。
+- **导出也复用同一内联逻辑**：`ExportPanel.vue` 在 PDF/PPTX/HTML 导出前，若渲染结果含 `assets/` 引用，
+  先内联成 dataURL 再 POST——否则打印页走 `file://` 无法带 token 取图，插入的背景图/图片会在 PDF/PPTX 中丢失。
+  内联失败不阻断导出，结果面板会提示「有 N 张图片未能读取」。
+- 上传后 Markdown 里**只写相对路径** `assets/x.png`（marp-tech 约定，可拷回 VS Code；PreviewPane 由 frontend-core 负责 blob 化）。
+  文件名为中文/空格时按 URL 编码写入（`encodeURI`，含空格/括号时用 `<>` 包裹 dest）。
+
+### 13.4 EditView 集成（marp-tech 负责，已互发约定）
+
+```ts
+// 图片：mode=image → 光标处插入；mode=background → 当前页页首（可用 frontmatter.insertAtPageStart）
+<ImageInsertDialog v-if="imageDialogOpen" :deck-id="deckId" :markdown="content"
+  :current-page="currentPage" :initial-mode="imageMode"
+  @insert="onImageInsert" @close="imageDialogOpen=false" />
+// 表格
+<TableInsertDialog v-if="tableDialogOpen" :markdown="content" :current-page="currentPage"
+  @insert="snippet => { editor.insertText(snippet, {block:true}); tableDialogOpen=false }"
+  @close="tableDialogOpen=false" />
+
+// 粘贴/拖拽快捷路径（编辑器容器）
+const detach = attachImagePasteDrop(editorEl, {
+  onFiles: async (files) => {
+    const asset = await uploadAsset(deckId, files[0])
+    editor.insertText(pasteImageSnippet(asset.path), { block: true })
+  },
+})
+onBeforeUnmount(detach)
+```
+
+### 13.5 自测 / 复现
+
+```powershell
+# 1) 语法 & 分页逻辑（esbuild 编译 compose.ts → 真实 marp-core 渲染断言，15/15 通过）
+node spike/export/scripts/verify-compose.mjs
+
+# 2) 前端生产构建（含 InsertDialog/TableInsertDialog/compose/upload/pasteDrop 懒加载 chunk）
+pnpm --dir web build
+
+# 3) 真实浏览器冒烟（Vite dev + mock 模式，无需后端；11/11 通过）
+$env:MWB_DEV_PORT='5183'; pnpm --dir web dev      # 另开一个终端
+$env:MWB_UI_BASE='http://localhost:5183'; node spike/export/scripts/verify-m2-ui.mjs
+#   覆盖：打开编辑器 → 图片对话框 → 上传图 → 切背景图/左侧 40% → 预览 iframe（仅当前页 + split=left +
+#   资产已内联 dataURL）→ 插入成功 toast → 表格对话框 → 网格选 5×4 → 插入成功 toast → 无页面 JS 错误
+#   截图：spike/export/out/m2-image-bg.png、m2-table-dialog.png
+```
+
+**实测结果（2026-10-20）**：`verify-compose` 15/15；`pnpm --dir web build` 成功
+（ImageInsertDialog 12.26KB / TableInsertDialog 5.94KB / compose 3.88KB / upload 2.52KB / pasteDrop 1.91KB 懒加载 chunk）；
+真实浏览器冒烟 11/11，对话框内预览可正确显示「背景图左侧 40% + 当前页」，插入后 toast「已插入背景图 / 已插入表格」，无 JS 错误。
+
+**集成现状与待办**：EditView（marp-tech）已挂载两个对话框并接通 `insert`/`close` 与页首插入；
+粘贴/拖拽快捷路径已接 `attachImagePasteDrop`，但其插入片段仍硬编码 `![w:60%]`（marp-core 忽略百分比）。
+已建议改用本模块 `pasteImageSnippet()`（返回 `![w:768px]`），属 marp-tech 文件内的 1 行替换，不阻塞 M2 验收。
+
+> 未完成/边界：普通图片「原图」尺寸取决于图片原始像素（Marp 语义）；超高图片仍可能被主题
+> `overflow:hidden` 裁切（与预览一致）。对话框对超大图（>20MB）直接拒绝并提示。
+

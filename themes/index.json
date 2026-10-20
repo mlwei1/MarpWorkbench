@@ -46,5 +46,53 @@
     "category": "创意",
     "file": "gradient-vivid.css",
     "description": "路演/创意提案：紫粉渐变封面、深色代码卡，抓眼球但不牺牲可读性。"
+  },
+  {
+    "name": "startup-orange",
+    "displayName": "创业橙",
+    "tags": ["路演", "创业", "融资", "橙色", "活力", "浅色"],
+    "category": "商务",
+    "file": "startup-orange.css",
+    "description": "创业路演/融资 BP：奶油白底 + 创业橙、粗壮标题，封面橙红渐变有冲劲。"
+  },
+  {
+    "name": "data-teal",
+    "displayName": "数据青",
+    "tags": ["数据", "汇报", "分析", "青色", "专业", "浅色"],
+    "category": "科技",
+    "file": "data-teal.css",
+    "description": "数据汇报/季度复盘：冷白底 + 数据青、等宽数字与强表格样式，数字对齐更专业。"
+  },
+  {
+    "name": "dark-neon",
+    "displayName": "暗夜霓虹",
+    "tags": ["发布会", "科技", "深色", "霓虹", "酷", "创意"],
+    "category": "创意",
+    "file": "dark-neon.css",
+    "description": "发布会/品牌活动：近黑底 + 青/品红/柠檬绿霓虹，封面光晕+点阵，暗场氛围感强。"
+  },
+  {
+    "name": "paper-warm",
+    "displayName": "暖纸",
+    "tags": ["阅读", "长文", "暖色", "纸感", "衬线", "浅色"],
+    "category": "学术",
+    "file": "paper-warm.css",
+    "description": "阅读型长文/课程讲义：暖纸底 + 衬线正文 + 宽行高，像翻一本干净的书。"
+  },
+  {
+    "name": "chinese-ink",
+    "displayName": "中国风水墨",
+    "tags": ["中国风", "水墨", "中文", "传统文化", "衬线", "浅色"],
+    "category": "创意",
+    "file": "chinese-ink.css",
+    "description": "国风/人文讲座：宣纸底 + 墨色楷宋 + 朱砂印章，角落淡墨晕染，不抢内容。"
+  },
+  {
+    "name": "nature-green",
+    "displayName": "自然绿",
+    "tags": ["自然", "环保", "教育", "绿色", "清新", "浅色"],
+    "category": "学术",
+    "file": "nature-green.css",
+    "description": "环保/自然科普/教育课程：薄荷底 + 森林绿、叶片形装饰，清新但有秩序。"
   }
 ]

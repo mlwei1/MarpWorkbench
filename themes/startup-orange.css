@@ -1,0 +1,332 @@
+/*
+ * @theme startup-orange
+ * @name 创业橙
+ * @tags 路演,创业,融资,橙色,活力,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：创业路演、融资 BP、项目启动会等需要"有冲劲"的场合。
+ * 设计：奶油白底 + 创业橙主色 + 深棕文字；封面为橙红渐变 + 半透明大圆装饰；
+ *       标题粗壮、强调色醒目；代码块深棕底配橙色高亮。全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 62px 80px 74px;
+  background: #fffaf5;
+  background-image: linear-gradient(180deg, #fff7ed 0%, #fffaf5 32%, #fffaf5 100%);
+  color: #2a1c12;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页顶部橙色渐变条 */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #9a3412 0%, #ea580c 55%, #fb923c 100%);
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.48em;
+  color: #431407;
+  font-size: 2.08em;
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -0.01em;
+}
+
+section h2 {
+  margin: 0 0 0.55em;
+  color: #7c2d12;
+  font-size: 1.5em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+section h2::before {
+  content: '';
+  display: block;
+  width: 56px;
+  height: 6px;
+  margin-bottom: 0.3em;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ea580c, #fb923c);
+}
+
+section h3 {
+  margin: 0.7em 0 0.32em;
+  color: #ea580c;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #43301f;
+}
+
+section strong {
+  color: #9a3412;
+}
+
+section em {
+  color: #c2410c;
+}
+
+section a {
+  color: #ea580c;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.25em;
+}
+
+section li::marker {
+  color: #ea580c;
+  font-weight: 700;
+}
+
+/* ---------- 封面页 ---------- */
+section.lead {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 88px 100px;
+  background: #7c2d12;
+  background-image:
+    radial-gradient(640px 380px at 82% 22%, rgba(255, 237, 213, 0.3), transparent 62%),
+    radial-gradient(560px 320px at 10% 92%, rgba(251, 146, 60, 0.35), transparent 66%),
+    linear-gradient(135deg, #7c2d12 0%, #c2410c 52%, #ea580c 100%);
+  color: #ffffff;
+}
+
+section.lead h1 {
+  margin: 0 0 0.38em;
+  color: #ffffff;
+  font-size: 2.55em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+section.lead h2 {
+  padding: 0;
+  color: #ffedd5;
+  font-size: 1.16em;
+  font-weight: 400;
+}
+
+section.lead h2::before {
+  display: none;
+}
+
+section.lead h3 {
+  color: #fed7aa;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #fff7ed;
+}
+
+section.lead a {
+  color: #ffffff;
+}
+
+/* 封面右下大圆装饰（纯 CSS） */
+section.lead::before {
+  content: '';
+  position: absolute;
+  right: 72px;
+  bottom: 64px;
+  width: 168px;
+  height: 168px;
+  border: 10px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(255, 255, 255, 0.1);
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.36em;
+  border-radius: 5px;
+  background: #ffedd5;
+  color: #9a3412;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.86em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border-radius: 12px;
+  background: #1c1410;
+  box-shadow: 0 10px 26px rgba(124, 45, 18, 0.22);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #ffe8d6;
+  font-size: 0.62em;
+}
+
+/* 深棕代码块高亮 token */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #fb923c; font-weight: 600; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #a7f3d0; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #a8a29e; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #fcd34d; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #fdba74; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #f0abfc; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.45;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 1px solid #fed7aa;
+  background: #ffedd5;
+  color: #7c2d12;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 11px 20px;
+  border: 1px solid #fde8d2;
+  color: #43301f;
+}
+
+section table tr:nth-child(even) td {
+  background: #fff7ed;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 18px 26px;
+  border-left: 6px solid #ea580c;
+  border-radius: 0 10px 10px 0;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 0.94em;
+  font-style: normal;
+  font-weight: 500;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #7c2d12;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 28px;
+  left: 80px;
+  right: 80px;
+  margin: 0;
+  padding: 0 0 6px;
+  border-bottom: 1px solid #fde8d2;
+  color: #a16207;
+  font-size: 0.54em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 26px;
+  left: 80px;
+  margin: 0;
+  color: #b45309;
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+}
+
+section::after {
+  bottom: 22px;
+  right: 80px;
+  color: #ea580c;
+  font-size: 0.52em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+section.lead > header,
+section.lead > footer {
+  border-bottom: 0;
+  color: rgba(255, 247, 237, 0.78);
+}
+
+section.lead::after {
+  color: rgba(255, 247, 237, 0.78);
+}
+
+/* ---------- 排版增强：标题自动平衡换行 ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}
+
+/* ---------- contract-compat resets (do not remove) ---------- */
+/* 1) marp default theme gives <tr> a white background/border; clear it so theme bg shows. */
+section table tr {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 2) Fixed 720px canvas + flex column: never let pre/table shrink and clip code content. */
+section > * {
+  flex-shrink: 0;
+}
+
+/* 3) default theme zebra rows (tr:nth-child(2n)) must not paint light rows on dark themes. */
+section table tr,
+section table tr:nth-child(2n) {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 4) highlight.js subst token: inherit theme code color (default vars are light-theme oriented). */
+section pre code .hljs-subst {
+  color: inherit;
+}

@@ -90,6 +90,24 @@ function step(name, ok, detail) {
   console.log(`${ok ? '✅' : '❌'} ${name}${detail ? ` — ${detail}` : ''}`)
 }
 
+// 1x1 PNG（图片插入/粘贴测试用）
+const testPngPath = path.join(os.tmpdir(), 'mwb-verify-test.png')
+fs.writeFileSync(
+  testPngPath,
+  Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  ),
+)
+
+/** 读取 CodeMirror 完整文档（CM 只渲染可视行，不能用 textContent 判断全文） */
+function readEditor(page) {
+  return page.evaluate(() => {
+    const view = window.__mwbEditorView
+    return view?.state?.doc?.toString?.() || ''
+  })
+}
+
 async function main() {
   const puppeteer = loadPuppeteer()
   const chrome = findChrome()
@@ -266,6 +284,197 @@ async function main() {
   const ctrlPModal = await page.$('.modal-panel')
   step('Ctrl+P 打开导出面板', !!ctrlPModal, ctrlPModal ? '已打开' : '未打开')
   if (ctrlPModal) await page.mouse.click(10, 10)
+  await new Promise((r) => setTimeout(r, 400))
+
+  // ================================================================
+  // M2：格式工具栏 / 左大纲栏 / 右属性面板 / 图片·表格插入 / 粘贴
+  // ================================================================
+  const toolbarBtns = await page.$$eval('.editor-toolbar button', (els) => els.map((e) => e.textContent?.trim() || ''))
+  step('格式工具栏渲染', toolbarBtns.length >= 10, `${toolbarBtns.length} 个按钮`)
+
+  await page.waitForSelector('.side-left .sn-tabs', { timeout: 15000 }).catch(() => null)
+  const navOk = await page.$('.side-left .sn-tabs')
+  step('大纲/幻灯片左栏挂载', !!navOk, navOk ? 'SlideNavigator 已渲染' : '未找到 .sn-tabs')
+
+  const inspectorOk = await page.$('.side-right .inspector')
+  step('属性面板挂载', !!inspectorOk)
+  await page.screenshot({ path: path.join(shotDir, 'edit-m2.png') })
+  report.screenshots.push(path.join(shotDir, 'edit-m2.png'))
+
+  // 工具栏加粗（光标处插入占位文本）
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('.editor-toolbar button')].find((b) => b.textContent?.trim() === 'B')
+    btn?.click()
+  })
+  await new Promise((r) => setTimeout(r, 500))
+  let md = await readEditor(page)
+  step('工具栏加粗', md.includes('**'), md.match(/\*\*[^*]*\*\*/)?.[0] || '')
+
+  // 属性面板：尺寸 4:3 → front-matter + 预览 viewBox
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('.inspector .seg-btn')].find((b) => b.textContent?.trim() === '4:3')
+    btn?.click()
+  })
+  await new Promise((r) => setTimeout(r, 1400))
+  md = await readEditor(page)
+  step('属性面板改尺寸写回 front-matter', /size:\s*4:3/.test(md), md.match(/size:[^\n]*/)?.[0] || '')
+  const viewBox = await page.evaluate(() => {
+    const f = document.querySelector('.preview-frame')
+    return f?.contentDocument?.querySelector('svg')?.getAttribute('viewBox') || ''
+  })
+  step('尺寸变更预览生效', viewBox.includes('960 720'), viewBox)
+
+  // 属性面板：页眉（global）
+  await page.evaluate(() => {
+    const input = document.querySelector('.inspector input[placeholder*="2024"]')
+    if (input) {
+      input.value = '2024 年度汇报'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+  })
+  await new Promise((r) => setTimeout(r, 1400))
+  md = await readEditor(page)
+  step('属性面板改页眉', /header:\s*("?)2024 年度汇报/.test(md), md.match(/header:[^\n]*/)?.[0] || '')
+
+  // 属性面板：全局 class（第一组 chips 的 lead）
+  await page.evaluate(() => {
+    const groups = [...document.querySelectorAll('.inspector-group')]
+    const g = groups.find((x) => x.querySelector('h3')?.textContent?.includes('全局 class'))
+    const chip = g && [...g.querySelectorAll('.chip')].find((c) => c.textContent?.trim() === 'lead')
+    chip?.click()
+  })
+  await new Promise((r) => setTimeout(r, 1000))
+  md = await readEditor(page)
+  step('属性面板全局 class', /^class:\s*.*lead/m.test(md), md.match(/^class:[^\n]*/m)?.[0] || '')
+
+  // 属性面板：本页 class（第二组 chips 的 invert）
+  await page.evaluate(() => {
+    const groups = [...document.querySelectorAll('.inspector-group')]
+    const g = groups.find((x) => x.querySelector('h3')?.textContent?.includes('本页 class'))
+    const chip = g && [...g.querySelectorAll('.chip')].find((c) => c.textContent?.trim() === 'invert')
+    chip?.click()
+  })
+  await new Promise((r) => setTimeout(r, 1000))
+  md = await readEditor(page)
+  step('属性面板本页 class 指令', /<!--\s*_class:\s*invert\s*-->/.test(md), md.match(/<!--\s*_class[^>]*-->/)?.[0] || '')
+
+  // 图片插入器：上传 → 背景图 left → 插入
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('.editor-toolbar button')].find((b) => b.textContent?.includes('图片'))
+    btn?.click()
+  })
+  await page.waitForSelector('.insert-panel', { timeout: 20000 }).catch(() => null)
+  const dialogOpen = await page.$('.insert-panel')
+  step('图片插入器打开', !!dialogOpen)
+  if (dialogOpen) {
+    const fileInput = await page.$('.insert-panel input[type="file"]')
+    if (fileInput) await fileInput.uploadFile(testPngPath)
+    await page.waitForSelector('.insert-panel .thumb, .insert-panel .thumb-meta', { timeout: 25000 }).catch(() => null)
+    const uploaded = await page.$('.insert-panel .thumb-meta')
+    step('图片上传成功', !!uploaded, uploaded ? (await page.$eval('.insert-panel .thumb-meta', (el) => el.textContent?.trim().slice(0, 60))) : '')
+    await page.evaluate(() => {
+      const panel = document.querySelector('.insert-panel')
+      const bgBtn = panel && [...panel.querySelectorAll('button')].find((b) => b.textContent?.trim() === '背景图')
+      bgBtn?.click()
+    })
+    await new Promise((r) => setTimeout(r, 300))
+    await page.evaluate(() => {
+      const panel = document.querySelector('.insert-panel')
+      const leftBtn = panel && [...panel.querySelectorAll('button')].find((b) => b.textContent?.trim() === '左侧')
+      leftBtn?.click()
+    })
+    await new Promise((r) => setTimeout(r, 300))
+    await page.evaluate(() => {
+      const panel = document.querySelector('.insert-panel')
+      const insertBtn = panel && [...panel.querySelectorAll('.btn-primary')][0]
+      insertBtn?.click()
+    })
+    await new Promise((r) => setTimeout(r, 1400))
+    md = await readEditor(page)
+    step('背景图插入 Markdown', /!\[bg left[^\]]*\]\(assets\//.test(md), md.match(/!\[bg[^\]]*\]\([^)]*\)/)?.[0] || '')
+    const bgInPreview = await page.evaluate(() => {
+      const f = document.querySelector('.preview-frame')
+      const doc = f?.contentDocument
+      if (!doc) return 0
+      let count = 0
+      // marp 背景图渲染为 section 内 <figure style="background-image:url(...)">（advanced background）
+      doc.querySelectorAll('figure, [style*="blob:"], [style*="background-image"]').forEach((el) => {
+        const style = el.getAttribute('style') || ''
+        if (style.includes('blob:') || style.includes('background-image')) count++
+      })
+      return count
+    })
+    step('背景图在预览中解析', bgInPreview > 0, `matched elements=${bgInPreview}`)
+  }
+
+  // 表格插入器：3×3 → 插入
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('.editor-toolbar button')].find((b) => b.textContent?.includes('表格'))
+    btn?.click()
+  })
+  await page.waitForSelector('.table-panel', { timeout: 20000 }).catch(() => null)
+  const tableOpen = await page.$('.table-panel')
+  step('表格插入器打开', !!tableOpen)
+  if (tableOpen) {
+    await page.evaluate(() => {
+      const panel = document.querySelector('.table-panel')
+      const inputs = panel?.querySelectorAll('.num-field input') || []
+      if (inputs[0]) {
+        inputs[0].value = '3'
+        inputs[0].dispatchEvent(new Event('change', { bubbles: true }))
+      }
+      if (inputs[1]) {
+        inputs[1].value = '3'
+        inputs[1].dispatchEvent(new Event('change', { bubbles: true }))
+      }
+    })
+    await new Promise((r) => setTimeout(r, 300))
+    await page.evaluate(() => {
+      const panel = document.querySelector('.table-panel')
+      const insertBtn = panel && [...panel.querySelectorAll('.btn-primary')][0]
+      insertBtn?.click()
+    })
+    await new Promise((r) => setTimeout(r, 1000))
+    md = await readEditor(page)
+    const tableRows = (md.match(/^\|.*\|$/gm) || []).length
+    step('表格插入 Markdown（GFM）', tableRows >= 4, `表格行数=${tableRows}`)
+  }
+
+  // 粘贴图片快捷路径（上传 + 插入 ![w:60%]）
+  await page.evaluate(async () => {
+    const dataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], 'paste-test.png', { type: 'image/png' })
+    const dt = new DataTransfer()
+    dt.items.add(file)
+    const pane = document.querySelector('.editor-pane')
+    const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt })
+    pane?.dispatchEvent(event)
+  })
+  await new Promise((r) => setTimeout(r, 3000))
+  md = await readEditor(page)
+  step(
+    '粘贴图片快捷插入',
+    /!\[w:(?:60%|\d+px)\]\(assets\//.test(md),
+    md.match(/!\[w:[^\]]*\]\([^)]*\)/)?.[0] || '',
+  )
+
+  // 侧栏折叠
+  await page.evaluate(() => {
+    const btn = [...document.querySelectorAll('.topbar-right button')].find((b) => b.textContent?.includes('大纲'))
+    btn?.click()
+  })
+  await new Promise((r) => setTimeout(r, 400))
+  const leftClosed = await page.evaluate(() => ({
+    cls: document.querySelector('.editor-body')?.className || '',
+    ls: localStorage.getItem('mwb.edit.leftOpen'),
+  }))
+  step('左栏可折叠且记忆状态', leftClosed.cls.includes('left-closed') && leftClosed.ls === '0', JSON.stringify(leftClosed))
+
+  await page.screenshot({ path: path.join(shotDir, 'edit-m2-after.png') })
+  report.screenshots.push(path.join(shotDir, 'edit-m2-after.png'))
 
   // ---- 导出按钮（面板可能尚未就绪） ----
   await page.screenshot({ path: path.join(shotDir, 'edit.png') })

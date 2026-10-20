@@ -295,3 +295,27 @@ section.lead h1,
 section.lead h2 {
   text-wrap: balance;
 }
+
+/* ---------- contract-compat resets (do not remove) ---------- */
+/* 1) marp default theme gives <tr> a white background/border; clear it so theme bg shows. */
+section table tr {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 2) Fixed 720px canvas + flex column: never let pre/table shrink and clip code content. */
+section > * {
+  flex-shrink: 0;
+}
+
+/* 3) default theme zebra rows (tr:nth-child(2n)) must not paint light rows on dark themes. */
+section table tr,
+section table tr:nth-child(2n) {
+  background-color: transparent;
+  border-top: 0;
+}
+
+/* 4) highlight.js subst token: inherit theme code color (default vars are light-theme oriented). */
+section pre code .hljs-subst {
+  color: inherit;
+}

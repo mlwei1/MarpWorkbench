@@ -19,10 +19,20 @@ interface MockDeck {
   updatedAt: string
 }
 
+interface MockAsset {
+  path: string
+  url: string
+  bytes: number
+}
+
 interface MockState {
   decks: MockDeck[]
   recent: string[]
   settings: Settings
+  /** 用户主题：name → CSS 原文（M2） */
+  userThemes: Record<string, string>
+  /** deckId → assets（mock 用 dataURL 存放，便于离线预览，M2） */
+  assets: Record<string, MockAsset[]>
 }
 
 function now(): string {
@@ -58,13 +68,24 @@ function createInitialState(): MockState {
       idleExitMinutes: 10,
       locale: 'zh-CN',
     },
+    userThemes: {},
+    assets: {},
   }
 }
 
 function load(): MockState {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as MockState
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<MockState>
+      const base = createInitialState()
+      return {
+        ...base,
+        ...parsed,
+        userThemes: parsed.userThemes ?? {},
+        assets: parsed.assets ?? {},
+      }
+    }
   } catch {
     /* ignore */
   }
@@ -129,10 +150,43 @@ function segments(path: string): { parts: string[] } {
   return { parts: clean.split('/').filter(Boolean).map(decodeURIComponent) }
 }
 
+// ---------- M2：用户主题 / 资产 ----------
+
+function extractThemeName(css: string): string | null {
+  const m = /\/\*[\s\S]{0,300}?@theme\s+([A-Za-z0-9_-]+)/.exec(css)
+  return m ? m[1] : null
+}
+
+function userThemeMeta(name: string, css: string): ThemeMeta {
+  const tags = (/@tags\s+([^\n*]+)/.exec(css)?.[1] || '我的').split(/[,，]/).map((s) => s.trim()).filter(Boolean)
+  const displayName = /@name\s+([^\n*]+)/.exec(css)?.[1]?.trim() || name
+  return { name, displayName, source: 'user', tags, css: false }
+}
+
+function formatBytes(bytes: number): number {
+  return bytes
+}
+
+function sanitizeAssetName(name: string): string {
+  const base = name.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'image.png'
+  return base.length > 80 ? base.slice(base.length - 80) : base
+}
+
+function fileToDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new ApiError('BAD_REQUEST', '读取图片失败', 400))
+    reader.readAsDataURL(file)
+  })
+}
+
 export async function mockRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   await delay()
   const method = (init.method || 'GET').toUpperCase()
-  const body = init.body ? JSON.parse(String(init.body)) : undefined
+  const isForm = typeof FormData !== 'undefined' && init.body instanceof FormData
+  const form = isForm ? (init.body as FormData) : null
+  const body = !init.body || isForm ? undefined : JSON.parse(String(init.body))
   const { parts } = segments(path)
   const state = load()
 
@@ -180,9 +234,39 @@ export async function mockRequest<T>(path: string, init: RequestInit = {}): Prom
     return items as T
   }
 
-  // themes
-  if (method === 'GET' && parts[0] === 'themes' && parts.length === 1) {
-    return { themes: MOCK_THEMES } as T
+  // themes（M2：含用户主题的增删改）
+  if (parts[0] === 'themes') {
+    if (method === 'GET' && parts.length === 1) {
+      const user = Object.entries(state.userThemes).map(([name, css]) => userThemeMeta(name, css))
+      return { themes: [...MOCK_THEMES, ...user] } as T
+    }
+    if (method === 'POST' && parts.length === 1) {
+      const css = String(body?.css || '')
+      const name = extractThemeName(css)
+      if (!name) throw new ApiError('BAD_REQUEST', '主题 CSS 缺少 /* @theme name */ 元信息', 400)
+      if (state.userThemes[name]) throw new ApiError('CONFLICT', `主题 ${name} 已存在`, 409)
+      state.userThemes[name] = css
+      save(state)
+      return userThemeMeta(name, css) as T
+    }
+    if (parts.length === 2 && method === 'PUT') {
+      const name = parts[1]
+      const css = String(body?.css || '')
+      const cssName = extractThemeName(css)
+      if (!cssName) throw new ApiError('BAD_REQUEST', '主题 CSS 缺少 /* @theme name */ 元信息', 400)
+      if (!state.userThemes[name]) throw new ApiError('NOT_FOUND', `主题 ${name} 不存在`, 404)
+      delete state.userThemes[name]
+      state.userThemes[cssName] = css
+      save(state)
+      return userThemeMeta(cssName, css) as T
+    }
+    if (parts.length === 2 && method === 'DELETE') {
+      const name = parts[1]
+      if (!state.userThemes[name]) throw new ApiError('NOT_FOUND', `主题 ${name} 不存在`, 404)
+      delete state.userThemes[name]
+      save(state)
+      return { ok: true } as T
+    }
   }
 
   // decks
@@ -209,6 +293,27 @@ export async function mockRequest<T>(path: string, init: RequestInit = {}): Prom
     const id = parts[1]
     if (!id) throw new ApiError('BAD_REQUEST', '缺少 deck id', 400)
 
+    // POST /decks/:id/assets（M2 图片上传）
+    if (method === 'POST' && parts[2] === 'assets') {
+      findDeck(state, id)
+      const file = form?.get('file')
+      if (!(file instanceof Blob)) throw new ApiError('BAD_REQUEST', '缺少 file 字段', 400)
+      const name = sanitizeAssetName(file instanceof File ? file.name : 'image.png')
+      const dataUrl = await fileToDataUrl(file)
+      const list = state.assets[id] || (state.assets[id] = [])
+      let candidate = name
+      let i = 2
+      while (list.some((a) => a.path === `assets/${candidate}`)) {
+        const dot = name.lastIndexOf('.')
+        candidate = dot > 0 ? `${name.slice(0, dot)}-${i}${name.slice(dot)}` : `${name}-${i}`
+        i++
+      }
+      const asset: MockAsset = { path: `assets/${candidate}`, url: dataUrl, bytes: file.size }
+      list.push(asset)
+      save(state)
+      return { ...asset } as T
+    }
+
     if (method === 'GET' && parts.length === 2) {
       const deck = findDeck(state, id)
       return {
@@ -217,7 +322,7 @@ export async function mockRequest<T>(path: string, init: RequestInit = {}): Prom
         content: deck.content,
         rev: deck.rev,
         updatedAt: deck.updatedAt,
-        assets: [],
+        assets: state.assets[id] || [],
       } as T
     }
 
@@ -267,8 +372,29 @@ export async function mockRequest<T>(path: string, init: RequestInit = {}): Prom
 
 export async function mockText(path: string): Promise<string> {
   await delay()
-  if (/^\/themes\/[^/]+\/css$/.test(path.split('?')[0])) {
-    return '/* mock: 该主题 CSS 由真实服务提供 */'
+  const clean = path.split('?')[0]
+  const m = /^\/themes\/([^/]+)\/css$/.exec(clean)
+  if (m) {
+    const name = decodeURIComponent(m[1])
+    const state = load()
+    if (state.userThemes[name]) return state.userThemes[name]
+    // 内置 marp 主题：前端已默认注册，无需 CSS
+    return `/* mock: 内置主题 ${name} 由 marp-core 提供 */`
   }
   throw new ApiError('NOT_FOUND', `Mock API 未实现：${path}`, 404)
+}
+
+/** mock 资产二进制：从 localStorage 里的 dataURL 还原 Blob */
+export async function mockBlob(path: string): Promise<Blob> {
+  await delay()
+  const { parts } = segments(path)
+  const name = parts[3]
+  const deckId = parts[1]
+  const state = load()
+  const asset =
+    state.assets[deckId]?.find((a) => a.path.endsWith(`/${name}`)) ||
+    state.assets[deckId]?.find((a) => a.path.split('/').pop() === name)
+  if (!asset) throw new ApiError('NOT_FOUND', `找不到图片：${name}`, 404)
+  const res = await fetch(asset.url)
+  return res.blob()
 }

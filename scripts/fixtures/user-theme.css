@@ -1,0 +1,25 @@
+/* @theme m2-e2e-theme */
+@import 'default';
+
+/* @name 测试导入主题 */
+/* @tags 测试,导入 */
+/* @size 16:9 1280px 720px */
+
+section {
+  background: #101820;
+  color: #f2e8d5;
+  font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+}
+
+section.lead h1 {
+  color: #ffd166;
+}
+
+section code {
+  background: #1f2b3a;
+  color: #9ae6b4;
+}
+
+section::after {
+  color: #6b7280;
+}

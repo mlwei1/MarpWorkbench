@@ -27,7 +27,16 @@ html, body { margin: 0; padding: 0; }
 `
 
 const results = {}
-for (const theme of ['gradient-vivid', 'tech-dark', 'business-blue', 'academic-white']) {
+for (const theme of [
+  'dark-neon',
+  'startup-orange',
+  'data-teal',
+  'paper-warm',
+  'chinese-ink',
+  'nature-green',
+  'tech-dark',
+  'gradient-vivid',
+]) {
   const src = join(outDir, `${theme}.html`)
   if (!existsSync(src)) {
     results[theme] = { error: '源 HTML 不存在，请先跑 render-themes.mjs' }
