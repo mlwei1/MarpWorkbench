@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Marp PDF export spike</title>
+<style>
+  /* 关键：打印页面尺寸 = 1280x720 CSS px = 960x540 pt (16:9)。
+     Electron printToPDF 传 preferCSSPageSize: true 时以这条 @page 为准。 */
+  @page {
+    size: 1280px 720px;
+    margin: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
+    padding: 72px 88px;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* 最后一页不要再分页，否则 Chromium 可能多出一个空白页 */
+  .slide:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  h1 { font-size: 64px; margin: 0 0 24px; line-height: 1.15; }
+  h2 { font-size: 46px; margin: 0 0 20px; }
+  p, li { font-size: 30px; line-height: 1.5; }
+  .tag {
+    position: absolute;
+    right: 48px;
+    bottom: 40px;
+    font-size: 24px;
+    opacity: 0.75;
+  }
+  .s1 { background: #ffffff; color: #1f2937; }
+  .s1 .bar { width: 160px; height: 12px; background: #7c3aed; margin-bottom: 36px; }
+  .s2 { background: #0b1020; color: #e5e7eb; }
+  .s2 .accent { color: #a78bfa; }
+  .s3 { background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 55%, #db2777 100%); color: #ffffff; }
+  .card {
+    margin-top: 40px;
+    padding: 32px 40px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 28px;
+    line-height: 1.55;
+  }
+  code {
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 26px;
+    background: rgba(127, 127, 127, 0.18);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+  <section class="slide s1">
+    <div class="bar"></div>
+    <h1>Marp 桌面应用<br />PDF 导出可行性实测</h1>
+    <p>Electron 44 · webContents.printToPDF · 隐藏窗口 · 1280×720 设计稿</p>
+    <p>中文渲染检查：幻灯片、主题、导出、演讲者模式。</p>
+    <div class="tag">SLIDE 1 / 3</div>
+  </section>
+
+  <section class="slide s2">
+    <h2>每页一张 slide，关键在于 <span class="accent">@page 尺寸</span></h2>
+    <p>· CSS：<code>@page { size: 1280px 720px; margin: 0 }</code></p>
+    <p>· printToPDF：<code>preferCSSPageSize: true</code></p>
+    <p>· 背景与渐变：<code>printBackground: true</code></p>
+    <div class="tag">SLIDE 2 / 3</div>
+  </section>
+
+  <section class="slide s3">
+    <h2>3 页全部导出后再校验</h2>
+    <div class="card">
+      页数应为 3，页面尺寸应为 960×540 pt（即 16:9），<br />
+      且每页都应能提取到非空文本（非空白页）。
+    </div>
+    <div class="tag">SLIDE 3 / 3</div>
+  </section>
+</body>
+</html>

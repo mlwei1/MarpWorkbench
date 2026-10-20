@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Marp PDF export spike</title>
+<style>
+  /* 关键：打印页面尺寸 = 1280x720 CSS px = 960x540 pt (16:9)。
+     Electron printToPDF 传 preferCSSPageSize: true 时以这条 @page 为准。 */
+  @page {
+    size: 1280px 720px;
+    margin: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
+    padding: 72px 88px;
+    page-break-after: always;
+    break-after: page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* 最后一页不要再分页，否则 Chromium 可能多出一个空白页 */
+  .slide:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  h1 { font-size: 64px; margin: 0 0 24px; line-height: 1.15; }
+  h2 { font-size: 46px; margin: 0 0 20px; }
+  p, li { font-size: 30px; line-height: 1.5; }
+  .tag {
+    position: absolute;
+    right: 48px;
+    bottom: 40px;
+    font-size: 24px;
+    opacity: 0.75;
+  }
+  .s1 { background: #ffffff; color: #1f2937; }
+  .s1 .bar { width: 160px; height: 12px; background: #7c3aed; margin-bottom: 36px; }
+  .s2 { background: #0b1020; color: #e5e7eb; }
+  .s2 .accent { color: #a78bfa; }
+  .s3 { background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 55%, #db2777 100%); color: #ffffff; }
+  .card {
+    margin-top: 40px;
+    padding: 32px 40px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 28px;
+    line-height: 1.55;
+  }
+  code {
+    font-family: "Cascadia Mono", "Consolas", monospace;
+    font-size: 26px;
+    background: rgba(127, 127, 127, 0.18);
+    padding: 2px 8px;
+    border-radius: 6px;
+  }
+</style>
+</head>
+<body>
+  <section class="slide s1">
+    <h2>SLIDE 1 / 100</h2>
+    <p>性能测试页 1：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 1</code></p>
+    <div class="tag">SLIDE 1 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 2 / 100</h2>
+    <p>性能测试页 2：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 2</code></p>
+    <div class="tag">SLIDE 2 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 3 / 100</h2>
+    <p>性能测试页 3：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 3</code></p>
+    <div class="tag">SLIDE 3 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 4 / 100</h2>
+    <p>性能测试页 4：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 4</code></p>
+    <div class="tag">SLIDE 4 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 5 / 100</h2>
+    <p>性能测试页 5：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 5</code></p>
+    <div class="tag">SLIDE 5 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 6 / 100</h2>
+    <p>性能测试页 6：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 6</code></p>
+    <div class="tag">SLIDE 6 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 7 / 100</h2>
+    <p>性能测试页 7：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 7</code></p>
+    <div class="tag">SLIDE 7 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 8 / 100</h2>
+    <p>性能测试页 8：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 8</code></p>
+    <div class="tag">SLIDE 8 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 9 / 100</h2>
+    <p>性能测试页 9：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 9</code></p>
+    <div class="tag">SLIDE 9 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 10 / 100</h2>
+    <p>性能测试页 10：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 10</code></p>
+    <div class="tag">SLIDE 10 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 11 / 100</h2>
+    <p>性能测试页 11：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 11</code></p>
+    <div class="tag">SLIDE 11 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 12 / 100</h2>
+    <p>性能测试页 12：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 12</code></p>
+    <div class="tag">SLIDE 12 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 13 / 100</h2>
+    <p>性能测试页 13：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 13</code></p>
+    <div class="tag">SLIDE 13 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 14 / 100</h2>
+    <p>性能测试页 14：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 14</code></p>
+    <div class="tag">SLIDE 14 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 15 / 100</h2>
+    <p>性能测试页 15：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 15</code></p>
+    <div class="tag">SLIDE 15 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 16 / 100</h2>
+    <p>性能测试页 16：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 16</code></p>
+    <div class="tag">SLIDE 16 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 17 / 100</h2>
+    <p>性能测试页 17：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 17</code></p>
+    <div class="tag">SLIDE 17 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 18 / 100</h2>
+    <p>性能测试页 18：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 18</code></p>
+    <div class="tag">SLIDE 18 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 19 / 100</h2>
+    <p>性能测试页 19：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 19</code></p>
+    <div class="tag">SLIDE 19 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 20 / 100</h2>
+    <p>性能测试页 20：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 20</code></p>
+    <div class="tag">SLIDE 20 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 21 / 100</h2>
+    <p>性能测试页 21：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 21</code></p>
+    <div class="tag">SLIDE 21 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 22 / 100</h2>
+    <p>性能测试页 22：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 22</code></p>
+    <div class="tag">SLIDE 22 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 23 / 100</h2>
+    <p>性能测试页 23：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 23</code></p>
+    <div class="tag">SLIDE 23 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 24 / 100</h2>
+    <p>性能测试页 24：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 24</code></p>
+    <div class="tag">SLIDE 24 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 25 / 100</h2>
+    <p>性能测试页 25：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 25</code></p>
+    <div class="tag">SLIDE 25 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 26 / 100</h2>
+    <p>性能测试页 26：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 26</code></p>
+    <div class="tag">SLIDE 26 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 27 / 100</h2>
+    <p>性能测试页 27：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 27</code></p>
+    <div class="tag">SLIDE 27 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 28 / 100</h2>
+    <p>性能测试页 28：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 28</code></p>
+    <div class="tag">SLIDE 28 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 29 / 100</h2>
+    <p>性能测试页 29：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 29</code></p>
+    <div class="tag">SLIDE 29 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 30 / 100</h2>
+    <p>性能测试页 30：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 30</code></p>
+    <div class="tag">SLIDE 30 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 31 / 100</h2>
+    <p>性能测试页 31：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 31</code></p>
+    <div class="tag">SLIDE 31 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 32 / 100</h2>
+    <p>性能测试页 32：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 32</code></p>
+    <div class="tag">SLIDE 32 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 33 / 100</h2>
+    <p>性能测试页 33：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 33</code></p>
+    <div class="tag">SLIDE 33 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 34 / 100</h2>
+    <p>性能测试页 34：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 34</code></p>
+    <div class="tag">SLIDE 34 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 35 / 100</h2>
+    <p>性能测试页 35：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 35</code></p>
+    <div class="tag">SLIDE 35 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 36 / 100</h2>
+    <p>性能测试页 36：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 36</code></p>
+    <div class="tag">SLIDE 36 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 37 / 100</h2>
+    <p>性能测试页 37：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 37</code></p>
+    <div class="tag">SLIDE 37 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 38 / 100</h2>
+    <p>性能测试页 38：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 38</code></p>
+    <div class="tag">SLIDE 38 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 39 / 100</h2>
+    <p>性能测试页 39：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 39</code></p>
+    <div class="tag">SLIDE 39 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 40 / 100</h2>
+    <p>性能测试页 40：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 40</code></p>
+    <div class="tag">SLIDE 40 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 41 / 100</h2>
+    <p>性能测试页 41：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 41</code></p>
+    <div class="tag">SLIDE 41 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 42 / 100</h2>
+    <p>性能测试页 42：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 42</code></p>
+    <div class="tag">SLIDE 42 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 43 / 100</h2>
+    <p>性能测试页 43：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 43</code></p>
+    <div class="tag">SLIDE 43 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 44 / 100</h2>
+    <p>性能测试页 44：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 44</code></p>
+    <div class="tag">SLIDE 44 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 45 / 100</h2>
+    <p>性能测试页 45：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 45</code></p>
+    <div class="tag">SLIDE 45 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 46 / 100</h2>
+    <p>性能测试页 46：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 46</code></p>
+    <div class="tag">SLIDE 46 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 47 / 100</h2>
+    <p>性能测试页 47：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 47</code></p>
+    <div class="tag">SLIDE 47 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 48 / 100</h2>
+    <p>性能测试页 48：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 48</code></p>
+    <div class="tag">SLIDE 48 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 49 / 100</h2>
+    <p>性能测试页 49：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 49</code></p>
+    <div class="tag">SLIDE 49 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 50 / 100</h2>
+    <p>性能测试页 50：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 50</code></p>
+    <div class="tag">SLIDE 50 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 51 / 100</h2>
+    <p>性能测试页 51：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 51</code></p>
+    <div class="tag">SLIDE 51 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 52 / 100</h2>
+    <p>性能测试页 52：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 52</code></p>
+    <div class="tag">SLIDE 52 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 53 / 100</h2>
+    <p>性能测试页 53：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 53</code></p>
+    <div class="tag">SLIDE 53 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 54 / 100</h2>
+    <p>性能测试页 54：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 54</code></p>
+    <div class="tag">SLIDE 54 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 55 / 100</h2>
+    <p>性能测试页 55：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 55</code></p>
+    <div class="tag">SLIDE 55 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 56 / 100</h2>
+    <p>性能测试页 56：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 56</code></p>
+    <div class="tag">SLIDE 56 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 57 / 100</h2>
+    <p>性能测试页 57：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 57</code></p>
+    <div class="tag">SLIDE 57 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 58 / 100</h2>
+    <p>性能测试页 58：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 58</code></p>
+    <div class="tag">SLIDE 58 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 59 / 100</h2>
+    <p>性能测试页 59：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 59</code></p>
+    <div class="tag">SLIDE 59 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 60 / 100</h2>
+    <p>性能测试页 60：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 60</code></p>
+    <div class="tag">SLIDE 60 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 61 / 100</h2>
+    <p>性能测试页 61：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 61</code></p>
+    <div class="tag">SLIDE 61 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 62 / 100</h2>
+    <p>性能测试页 62：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 62</code></p>
+    <div class="tag">SLIDE 62 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 63 / 100</h2>
+    <p>性能测试页 63：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 63</code></p>
+    <div class="tag">SLIDE 63 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 64 / 100</h2>
+    <p>性能测试页 64：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 64</code></p>
+    <div class="tag">SLIDE 64 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 65 / 100</h2>
+    <p>性能测试页 65：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 65</code></p>
+    <div class="tag">SLIDE 65 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 66 / 100</h2>
+    <p>性能测试页 66：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 66</code></p>
+    <div class="tag">SLIDE 66 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 67 / 100</h2>
+    <p>性能测试页 67：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 67</code></p>
+    <div class="tag">SLIDE 67 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 68 / 100</h2>
+    <p>性能测试页 68：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 68</code></p>
+    <div class="tag">SLIDE 68 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 69 / 100</h2>
+    <p>性能测试页 69：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 69</code></p>
+    <div class="tag">SLIDE 69 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 70 / 100</h2>
+    <p>性能测试页 70：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 70</code></p>
+    <div class="tag">SLIDE 70 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 71 / 100</h2>
+    <p>性能测试页 71：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 71</code></p>
+    <div class="tag">SLIDE 71 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 72 / 100</h2>
+    <p>性能测试页 72：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 72</code></p>
+    <div class="tag">SLIDE 72 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 73 / 100</h2>
+    <p>性能测试页 73：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 73</code></p>
+    <div class="tag">SLIDE 73 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 74 / 100</h2>
+    <p>性能测试页 74：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 74</code></p>
+    <div class="tag">SLIDE 74 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 75 / 100</h2>
+    <p>性能测试页 75：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 75</code></p>
+    <div class="tag">SLIDE 75 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 76 / 100</h2>
+    <p>性能测试页 76：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 76</code></p>
+    <div class="tag">SLIDE 76 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 77 / 100</h2>
+    <p>性能测试页 77：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 77</code></p>
+    <div class="tag">SLIDE 77 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 78 / 100</h2>
+    <p>性能测试页 78：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 78</code></p>
+    <div class="tag">SLIDE 78 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 79 / 100</h2>
+    <p>性能测试页 79：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 79</code></p>
+    <div class="tag">SLIDE 79 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 80 / 100</h2>
+    <p>性能测试页 80：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 80</code></p>
+    <div class="tag">SLIDE 80 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 81 / 100</h2>
+    <p>性能测试页 81：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 81</code></p>
+    <div class="tag">SLIDE 81 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 82 / 100</h2>
+    <p>性能测试页 82：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 82</code></p>
+    <div class="tag">SLIDE 82 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 83 / 100</h2>
+    <p>性能测试页 83：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 83</code></p>
+    <div class="tag">SLIDE 83 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 84 / 100</h2>
+    <p>性能测试页 84：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 84</code></p>
+    <div class="tag">SLIDE 84 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 85 / 100</h2>
+    <p>性能测试页 85：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 85</code></p>
+    <div class="tag">SLIDE 85 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 86 / 100</h2>
+    <p>性能测试页 86：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 86</code></p>
+    <div class="tag">SLIDE 86 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 87 / 100</h2>
+    <p>性能测试页 87：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 87</code></p>
+    <div class="tag">SLIDE 87 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 88 / 100</h2>
+    <p>性能测试页 88：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 88</code></p>
+    <div class="tag">SLIDE 88 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 89 / 100</h2>
+    <p>性能测试页 89：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 89</code></p>
+    <div class="tag">SLIDE 89 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 90 / 100</h2>
+    <p>性能测试页 90：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 90</code></p>
+    <div class="tag">SLIDE 90 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 91 / 100</h2>
+    <p>性能测试页 91：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 91</code></p>
+    <div class="tag">SLIDE 91 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 92 / 100</h2>
+    <p>性能测试页 92：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 92</code></p>
+    <div class="tag">SLIDE 92 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 93 / 100</h2>
+    <p>性能测试页 93：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 93</code></p>
+    <div class="tag">SLIDE 93 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 94 / 100</h2>
+    <p>性能测试页 94：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 94</code></p>
+    <div class="tag">SLIDE 94 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 95 / 100</h2>
+    <p>性能测试页 95：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 95</code></p>
+    <div class="tag">SLIDE 95 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 96 / 100</h2>
+    <p>性能测试页 96：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 96</code></p>
+    <div class="tag">SLIDE 96 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 97 / 100</h2>
+    <p>性能测试页 97：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 97</code></p>
+    <div class="tag">SLIDE 97 / 100</div>
+  </section>
+  <section class="slide s2">
+    <h2>SLIDE 98 / 100</h2>
+    <p>性能测试页 98：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 98</code></p>
+    <div class="tag">SLIDE 98 / 100</div>
+  </section>
+  <section class="slide s3">
+    <h2>SLIDE 99 / 100</h2>
+    <p>性能测试页 99：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 99</code></p>
+    <div class="tag">SLIDE 99 / 100</div>
+  </section>
+  <section class="slide s1">
+    <h2>SLIDE 100 / 100</h2>
+    <p>性能测试页 100：中文文本、背景色、渐变与代码样式。</p>
+    <p><code>const n = 100</code></p>
+    <div class="tag">SLIDE 100 / 100</div>
+  </section>
+</body>
+</html>

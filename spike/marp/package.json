@@ -1,0 +1,33 @@
+{
+  "name": "marp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.14.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.14.0",
+  "type": "module",
+  "dependencies": {
+    "@marp-team/marp-cli": "4.5.1",
+    "@marp-team/marp-core": "4.4.0",
+    "pdf-lib": "1.17.1",
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
+    "puppeteer-core": "^24.43.1"
+  }
+}

@@ -1,0 +1,17 @@
+/*
+ * @theme company-cn
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ */
+@import 'default';
+
+section {
+  background: linear-gradient(135deg, #0b1f33 0%, #12395c 100%);
+  color: #e6f1ff;
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+section h1,
+section h2 {
+  color: #7fd1ff;
+}

@@ -1,0 +1,3 @@
+# spike 产物（不提交构建产物）
+rust-server/target/
+out/*.png

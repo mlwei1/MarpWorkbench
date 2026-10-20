@@ -1,0 +1,13 @@
+﻿# build & deps
+node_modules/
+dist/
+release/
+target/
+spike/**/node_modules/
+spike/**/target/
+spike/**/out/
+spike/**/.cache/
+# runtime artifacts
+*.log
+.DS_Store
+Thumbs.db

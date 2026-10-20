@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>Marp PDF export control (no @page)</title>
+<style>
+  /* 对照组：没有 @page 尺寸规则，验证它是否是「每页一张 slide」的必要条件 */
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-family: "Segoe UI", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  }
+  .slide {
+    width: 1280px;
+    height: 720px;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
+    padding: 72px 88px;
+    page-break-after: always;
+    break-after: page;
+  }
+  .slide:last-child { page-break-after: auto; break-after: auto; }
+  h1 { font-size: 64px; margin: 0 0 24px; }
+  h2 { font-size: 46px; margin: 0 0 20px; }
+  p, li { font-size: 30px; line-height: 1.5; }
+  .tag { position: absolute; right: 48px; bottom: 40px; font-size: 24px; opacity: 0.75; }
+  .s1 { background: #ffffff; color: #1f2937; }
+  .s2 { background: #0b1020; color: #e5e7eb; }
+  .s3 { background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 55%, #db2777 100%); color: #ffffff; }
+</style>
+</head>
+<body>
+  <section class="slide s1"><h1>CONTROL：没有 @page</h1><p>对照组</p><div class="tag">SLIDE 1 / 3</div></section>
+  <section class="slide s2"><h2>CONTROL 2</h2><div class="tag">SLIDE 2 / 3</div></section>
+  <section class="slide s3"><h2>CONTROL 3</h2><div class="tag">SLIDE 3 / 3</div></section>
+</body>
+</html>

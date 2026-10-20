@@ -1,0 +1,24 @@
+{
+  "name": "marp-exe-packaging-spike",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Electron spike: hidden window + webContents.printToPDF for Marp-style 1280x720 slides",
+  "main": "src/main.js",
+  "scripts": {
+    "export": "electron .",
+    "verify": "node scripts/verify-pdf.mjs"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.11",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "electron": "44.9.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}
