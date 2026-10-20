@@ -1,0 +1,50 @@
+[
+  {
+    "name": "business-blue",
+    "displayName": "商务蓝",
+    "tags": ["商务", "汇报", "评审", "蓝色", "浅色"],
+    "category": "商务",
+    "file": "business-blue.css",
+    "description": "工作汇报/方案评审首选：白底深蓝、左侧强调条，封面深蓝渐变。"
+  },
+  {
+    "name": "tech-dark",
+    "displayName": "科技深色",
+    "tags": ["技术", "科技", "深色", "代码", "发布会"],
+    "category": "科技",
+    "file": "tech-dark.css",
+    "description": "技术分享/架构评审：深海军蓝底、青蓝主色，代码块带描边微光，投屏暗环境更舒服。"
+  },
+  {
+    "name": "academic-white",
+    "displayName": "学术白",
+    "tags": ["学术", "答辩", "课程", "论文", "衬线", "浅色"],
+    "category": "学术",
+    "file": "academic-white.css",
+    "description": "论文答辩/课程讲义：纯白三线表、衬线标题、砖红点缀，接近论文扉页气质。"
+  },
+  {
+    "name": "minimal-gray",
+    "displayName": "极简灰",
+    "tags": ["极简", "通用", "灰", "克制", "浅色"],
+    "category": "极简",
+    "file": "minimal-gray.css",
+    "description": "不知道选什么就用它：近白底、石墨黑、大留白，内容永远比装饰重要。"
+  },
+  {
+    "name": "magazine",
+    "displayName": "杂志排版",
+    "tags": ["杂志", "编辑", "产品", "运营", "暖色", "衬线"],
+    "category": "创意",
+    "file": "magazine.css",
+    "description": "产品/运营叙事：暖纸底、大字衬线标题、砖橙强调，引用做成 pull-quote。"
+  },
+  {
+    "name": "gradient-vivid",
+    "displayName": "渐变活力",
+    "tags": ["路演", "创意", "渐变", "活力", "紫色", "浅色"],
+    "category": "创意",
+    "file": "gradient-vivid.css",
+    "description": "路演/创意提案：紫粉渐变封面、深色代码卡，抓眼球但不牺牲可读性。"
+  }
+]

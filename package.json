@@ -1,0 +1,20 @@
+{
+  "name": "marp-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MarpWorkbench — 便携单文件 Marp 幻灯片工作台（本地服务 + 浏览器 UI）",
+  "scripts": {
+    "build:marp": "node scripts/build-marp-browser.mjs",
+    "build:web": "pnpm --dir web build",
+    "build:server": "cargo build --release --manifest-path server/Cargo.toml",
+    "build": "pnpm run build:marp && pnpm run build:web && pnpm run build:server",
+    "dev:web": "pnpm --dir web dev",
+    "dev:server": "cargo run --manifest-path server/Cargo.toml",
+    "smoke": "node scripts/smoke.mjs",
+    "verify:smoke": "node scripts/smoke.mjs",
+    "verify:visual": "node scripts/visual-e2e.mjs --embedded"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

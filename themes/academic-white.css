@@ -1,0 +1,297 @@
+/*
+ * @theme academic-white
+ * @name 学术白
+ * @tags 学术,答辩,课程,论文,衬线,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：论文答辩、课程讲义、学术报告等需要严谨阅读感的场合。
+ * 设计：纯白底 + 深墨标题 + 砖红点缀；标题衬线、正文无衬线；表格采用三线表；
+ *       封面为大标题 + 细分割线，接近论文扉页气质。全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 68px 84px 76px;
+  background: #ffffff;
+  color: #1f2937;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 27px;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页顶部细线 */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  left: 84px;
+  width: 64px;
+  height: 4px;
+  background: #8c2f1b;
+}
+
+/* ---------- 标题层级（衬线） ---------- */
+section h1,
+section h2,
+section h3 {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+}
+
+section h1 {
+  margin: 0 0 0.45em;
+  color: #111827;
+  font-size: 1.95em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+section h2 {
+  margin: 0 0 0.5em;
+  padding-bottom: 0.3em;
+  border-bottom: 2px solid #e5e7eb;
+  color: #111827;
+  font-size: 1.42em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+section h3 {
+  margin: 0.75em 0 0.3em;
+  color: #8c2f1b;
+  font-size: 1.08em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #374151;
+}
+
+section strong {
+  color: #111827;
+  font-weight: 700;
+}
+
+section a {
+  color: #8c2f1b;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.25em;
+}
+
+section li::marker {
+  color: #8c2f1b;
+  font-weight: 700;
+}
+
+/* ---------- 封面页（论文扉页感） ---------- */
+section.lead {
+  align-items: center;
+  justify-content: center;
+  padding: 96px 120px;
+  background: #ffffff;
+  color: #111827;
+  text-align: center;
+}
+
+section.lead::before {
+  content: '';
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 320px;
+  height: 5px;
+  background: #8c2f1b;
+}
+
+section.lead h1 {
+  margin: 0 0 0.45em;
+  color: #111827;
+  font-size: 2.35em;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+section.lead h2 {
+  padding: 0.85em 0 0;
+  border: 0;
+  border-top: 1px solid #d1d5db;
+  color: #4b5563;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 1.05em;
+  font-weight: 400;
+  font-style: italic;
+}
+
+section.lead h3 {
+  color: #6b7280;
+  font-size: 0.92em;
+  font-weight: 400;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #4b5563;
+}
+
+section.lead a {
+  color: #8c2f1b;
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.34em;
+  border-radius: 4px;
+  background: #f3f4f6;
+  color: #8c2f1b;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+section pre {
+  margin: 0.75em 0 1em;
+  padding: 22px 26px;
+  border: 1px solid #e5e7eb;
+  border-left: 5px solid #8c2f1b;
+  border-radius: 0 8px 8px 0;
+  background: #fafafa;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #1f2937;
+  font-size: 0.6em;
+}
+
+/* 浅色代码块上的高亮 token：低饱和学术配色 */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #7c2d12; font-weight: 600; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #166534; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #9ca3af; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #b45309; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #1d4ed8; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #0f766e; }
+
+/* ---------- 表格（三线表） ---------- */
+section table {
+  width: auto;
+  margin: 0.55em 0 1em;
+  border-collapse: collapse;
+  border-top: 2px solid #111827;
+  border-bottom: 2px solid #111827;
+  font-size: 0.74em;
+  line-height: 1.5;
+}
+
+section table th {
+  padding: 10px 20px;
+  border: 0;
+  border-bottom: 1px solid #d1d5db;
+  background: transparent;
+  color: #111827;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 9px 20px;
+  border: 0;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+}
+
+section table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 4px 0 4px 24px;
+  border-left: 3px solid #d1d5db;
+  background: transparent;
+  color: #4b5563;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 0.94em;
+  font-style: italic;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #4b5563;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 30px;
+  left: 84px;
+  right: 84px;
+  margin: 0;
+  padding: 0 0 4px;
+  color: #6b7280;
+  font-size: 0.5em;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 30px;
+  left: 84px;
+  margin: 0;
+  color: #9ca3af;
+  font-size: 0.48em;
+  letter-spacing: 0.03em;
+}
+
+section::after {
+  bottom: 26px;
+  right: 84px;
+  color: #9ca3af;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.5em;
+  letter-spacing: 0.06em;
+}
+
+section.lead > header,
+section.lead > footer,
+section.lead::after {
+  color: #9ca3af;
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}

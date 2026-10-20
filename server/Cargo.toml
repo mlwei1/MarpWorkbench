@@ -1,0 +1,31 @@
+[package]
+name = "marp-workbench"
+version = "0.1.0"
+edition = "2021"
+description = "MarpWorkbench local server (portable single-file exe)"
+build = "build.rs"
+
+[[bin]]
+name = "MarpWorkbench"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["multipart"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "io-util", "time", "sync", "process"] }
+rust-embed = "8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+rand = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+tower-http = { version = "0.6", features = ["compression-gzip", "compression-br"] }
+percent-encoding = "2"
+tungstenite = "0.24"
+base64 = "0.22"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

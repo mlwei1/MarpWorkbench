@@ -1,0 +1,278 @@
+/*
+ * @theme minimal-gray
+ * @name 极简灰
+ * @tags 极简,通用,灰,克制,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：通用场合——不知道选什么时用这套，干净、不抢内容。
+ * 设计：近白底 + 石墨黑文字 + 单点强调；大留白、细线条、无装饰；封面为深灰底反白。
+ * 全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 84px 96px 88px;
+  background: #fafafa;
+  color: #27272a;
+  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  font-size: 28px;
+  line-height: 1.62;
+  letter-spacing: 0.005em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.5em;
+  color: #18181b;
+  font-size: 2.1em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+section h2 {
+  margin: 0 0 0.6em;
+  padding-left: 0.55em;
+  border-left: 4px solid #a1a1aa;
+  color: #18181b;
+  font-size: 1.46em;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+section h3 {
+  margin: 0.8em 0 0.35em;
+  color: #52525b;
+  font-size: 1.1em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+section p,
+section li {
+  color: #3f3f46;
+}
+
+section strong {
+  color: #18181b;
+}
+
+section em {
+  color: #52525b;
+}
+
+section a {
+  color: #18181b;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.2em;
+}
+
+section li::marker {
+  color: #a1a1aa;
+}
+
+/* ---------- 封面页（深灰反白） ---------- */
+section.lead {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 96px 104px;
+  background: #18181b;
+  color: #fafafa;
+}
+
+section.lead h1 {
+  margin: 0 0 0.4em;
+  color: #fafafa;
+  font-size: 2.5em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+section.lead h2 {
+  padding: 0;
+  border: 0;
+  color: #a1a1aa;
+  font-size: 1.12em;
+  font-weight: 400;
+}
+
+section.lead h3 {
+  color: #71717a;
+  font-weight: 400;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #e4e4e7;
+}
+
+section.lead a {
+  color: #ffffff;
+}
+
+/* 封面右下角细十字线装饰（纯 CSS） */
+section.lead::before {
+  content: '';
+  position: absolute;
+  right: 96px;
+  bottom: 96px;
+  width: 56px;
+  height: 56px;
+  border-right: 1px solid #3f3f46;
+  border-bottom: 1px solid #3f3f46;
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.34em;
+  border-radius: 4px;
+  background: #e4e4e7;
+  color: #27272a;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border: 1px solid #e4e4e7;
+  border-radius: 8px;
+  background: #f4f4f5;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #27272a;
+  font-size: 0.62em;
+}
+
+/* 浅色代码块高亮 token：低饱和灰阶 + 一点蓝 */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #3f3f46; font-weight: 600; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #52525b; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #a1a1aa; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #2563eb; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #18181b; font-weight: 600; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #7c3aed; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.5;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 0;
+  border-bottom: 2px solid #18181b;
+  background: transparent;
+  color: #18181b;
+  font-size: 0.92em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+}
+
+section table td {
+  padding: 10px 20px;
+  border: 0;
+  border-bottom: 1px solid #e4e4e7;
+  color: #3f3f46;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 4px 0 4px 24px;
+  border-left: 3px solid #d4d4d8;
+  background: transparent;
+  color: #52525b;
+  font-size: 0.94em;
+  font-style: normal;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #52525b;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 34px;
+  left: 96px;
+  right: 96px;
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.5em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 34px;
+  left: 96px;
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.48em;
+  letter-spacing: 0.06em;
+}
+
+section::after {
+  bottom: 30px;
+  right: 96px;
+  color: #a1a1aa;
+  font-size: 0.5em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+section.lead > header,
+section.lead > footer {
+  color: #71717a;
+}
+
+section.lead::after {
+  color: #71717a;
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}

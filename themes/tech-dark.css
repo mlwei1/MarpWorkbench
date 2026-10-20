@@ -1,0 +1,302 @@
+/*
+ * @theme tech-dark
+ * @name 科技深色
+ * @tags 技术,科技,深色,代码,发布会
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：技术分享、架构评审、开发者大会等需要投屏/暗环境的场合。
+ * 设计：深海军蓝底 + 青蓝主色 + 紫色辅助色；代码块带描边微光；封面为径向光晕渐变。
+ * 全部离线：不引用任何外网字体/图片，仅 @import 内置 default 主题。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 64px 76px 72px 84px;
+  background: #0b1020;
+  background-image:
+    radial-gradient(900px 420px at 88% -8%, rgba(56, 189, 248, 0.14), transparent 70%),
+    radial-gradient(760px 380px at -6% 108%, rgba(167, 139, 250, 0.12), transparent 70%),
+    linear-gradient(180deg, #0b1020 0%, #0d1526 100%);
+  color: #d7e3f4;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 页面顶部渐变发光线 */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #38bdf8 0%, #22d3ee 45%, #a78bfa 100%);
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.5em;
+  color: #eaf6ff;
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+section h2 {
+  margin: 0 0 0.55em;
+  padding: 0 0 0.3em 0.5em;
+  border-left: 6px solid #38bdf8;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+  font-size: 1.48em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+section h3 {
+  margin: 0.75em 0 0.35em;
+  color: #c4b5fd;
+  font-size: 1.12em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #c7d6ea;
+}
+
+section strong {
+  color: #7dd3fc;
+}
+
+section em {
+  color: #c4b5fd;
+}
+
+section a {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.2em;
+}
+
+section li::marker {
+  color: #38bdf8;
+}
+
+/* ---------- 封面页 ---------- */
+section.lead {
+  background: #0b1020;
+  background-image:
+    radial-gradient(720px 420px at 22% 28%, rgba(56, 189, 248, 0.22), transparent 68%),
+    radial-gradient(800px 480px at 88% 92%, rgba(167, 139, 250, 0.2), transparent 70%),
+    linear-gradient(135deg, #0b1020 0%, #0e1b36 55%, #102647 100%);
+  justify-content: center;
+  align-items: flex-start;
+  padding: 84px 96px;
+  color: #ffffff;
+}
+
+section.lead h1 {
+  margin: 0 0 0.35em;
+  color: #ffffff;
+  font-size: 2.55em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+section.lead h2 {
+  padding: 0;
+  border: 0;
+  color: #9fd8ff;
+  font-size: 1.18em;
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+section.lead h3 {
+  color: #c4b5fd;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #d6e8ff;
+}
+
+section.lead a {
+  color: #7dd3fc;
+}
+
+/* 封面装饰：左上角小方块矩阵（纯 CSS 渐变） */
+section.lead::before {
+  content: '';
+  position: absolute;
+  top: 72px;
+  right: 84px;
+  width: 96px;
+  height: 96px;
+  background-image: radial-gradient(circle, rgba(56, 189, 248, 0.85) 2px, transparent 2.5px);
+  background-size: 18px 18px;
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.13);
+  color: #a5e4ff;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.86em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  border-radius: 12px;
+  background: #070d1a;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.06), 0 12px 30px rgba(0, 0, 0, 0.45);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #d3e8ff;
+  font-size: 0.62em;
+}
+
+/* 深色代码块高亮 token：霓虹配色，保证对比度 */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #c792ea; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #a5e6a5; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #64748b; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #ffb86c; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #82aaff; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #7dd3fc; }
+section pre code .hljs-type,
+section pre code .hljs-meta { color: #ffd580; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.45;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(56, 189, 248, 0.12);
+  color: #9fe4ff;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 11px 20px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  color: #cbd9ec;
+}
+
+section table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 18px 26px;
+  border-left: 6px solid #a78bfa;
+  border-radius: 0 10px 10px 0;
+  background: rgba(167, 139, 250, 0.1);
+  color: #d8d2f5;
+  font-size: 0.92em;
+  font-style: normal;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #d8d2f5;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 26px;
+  left: 84px;
+  right: 76px;
+  margin: 0;
+  padding: 0 0 6px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+  color: #7f92ad;
+  font-size: 0.55em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 26px;
+  left: 84px;
+  margin: 0;
+  color: #6f819b;
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+}
+
+section::after {
+  bottom: 22px;
+  right: 76px;
+  color: #7f92ad;
+  font-size: 0.52em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+section.lead > header,
+section.lead > footer {
+  border-bottom: 0;
+  color: rgba(214, 232, 255, 0.72);
+}
+
+section.lead::after {
+  color: rgba(214, 232, 255, 0.72);
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}

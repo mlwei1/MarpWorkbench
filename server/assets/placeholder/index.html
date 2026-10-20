@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MarpWorkbench — 前端尚未构建</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; margin: 0; min-height: 100vh;
+         display: flex; align-items: center; justify-content: center; background: #0f172a; color: #e2e8f0; }
+  .card { max-width: 640px; padding: 40px 44px; border-radius: 16px; background: #1e293b; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: #334155; color: #93c5fd; font-size: 13px; margin-bottom: 16px; }
+  code, pre { font-family: "Cascadia Mono", Consolas, monospace; background: #0f172a; border-radius: 8px; }
+  code { padding: 2px 6px; }
+  pre { padding: 14px 16px; overflow: auto; font-size: 13px; line-height: 1.6; }
+  p { line-height: 1.75; color: #cbd5e1; }
+  a { color: #7dd3fc; }
+  .ok { color: #86efac; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">MarpWorkbench · Rust 服务骨架已运行</div>
+    <h1>前端尚未构建</h1>
+    <p>服务端已经正常启动（当前页面是占位页）。构建前端产物后刷新本页即可自动接管：</p>
+    <pre>cd 仓库根目录
+scripts/build-marp-browser.mjs  （如尚未提供，可先跳过）
+pnpm --dir web build</pre>
+    <p>然后重新运行 <code>cargo build --release --manifest-path server/Cargo.toml</code>（或开发期设置
+      <code>MWB_WEB_DIR=web/dist</code> 后直接刷新）。</p>
+    <p>健康检查：<a href="/api/health">/api/health</a> ·
+      接口前缀：<code>/api</code>（除 health 外需 <code>X-MWB-Token</code> 请求头）</p>
+    <p class="ok">提示：数据目录与当前端口见设置页/健康检查响应。</p>
+  </div>
+</body>
+</html>

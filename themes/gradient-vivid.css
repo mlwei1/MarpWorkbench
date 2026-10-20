@@ -1,0 +1,307 @@
+/*
+ * @theme gradient-vivid
+ * @name 渐变活力
+ * @tags 路演,创意,渐变,活力,紫色,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：路演、创意提案、校招宣讲等需要"有活力、抓眼球"的场合。
+ * 设计：淡紫渐变底 + 紫/粉主色 + 深色代码卡；封面为紫→粉全屏渐变 + 光斑；
+ *       标题用纯色（不用 background-clip:text，保证 PDF 打印稳定）。
+ * 全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 64px 80px 74px;
+  background: #f8f7ff;
+  background-image:
+    radial-gradient(720px 360px at 100% 0%, rgba(236, 72, 153, 0.1), transparent 70%),
+    radial-gradient(680px 360px at 0% 100%, rgba(99, 102, 241, 0.1), transparent 70%),
+    linear-gradient(160deg, #faf9ff 0%, #f5f2ff 100%);
+  color: #241d4f;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页顶部渐变条 */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.5em;
+  color: #2e1065;
+  font-size: 2.1em;
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+}
+
+section h2 {
+  margin: 0 0 0.58em;
+  color: #5b21b6;
+  font-size: 1.5em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+section h2::after {
+  content: '';
+  display: block;
+  width: 72px;
+  height: 5px;
+  margin-top: 0.28em;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #6366f1, #a855f7 55%, #ec4899);
+}
+
+section h3 {
+  margin: 0.8em 0 0.32em;
+  color: #be185d;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #322a63;
+}
+
+section strong {
+  color: #5b21b6;
+}
+
+section em {
+  color: #be185d;
+}
+
+section a {
+  color: #7c3aed;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.25em;
+}
+
+section li::marker {
+  color: #a855f7;
+}
+
+/* ---------- 封面页（紫→粉全屏渐变 + 光斑） ---------- */
+section.lead {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 88px 100px;
+  background: #4f46e5;
+  background-image:
+    radial-gradient(560px 320px at 82% 18%, rgba(255, 255, 255, 0.34), transparent 62%),
+    radial-gradient(700px 420px at 8% 96%, rgba(255, 214, 102, 0.22), transparent 66%),
+    linear-gradient(135deg, #4338ca 0%, #7c3aed 45%, #db2777 100%);
+  color: #ffffff;
+}
+
+section.lead h1 {
+  margin: 0 0 0.38em;
+  color: #ffffff;
+  font-size: 2.6em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+section.lead h2 {
+  padding: 0;
+  color: #f5d0fe;
+  font-size: 1.16em;
+  font-weight: 400;
+}
+
+section.lead h2::after {
+  display: none;
+}
+
+section.lead h3 {
+  color: #fbcfe8;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #fdf2ff;
+}
+
+section.lead a {
+  color: #ffffff;
+}
+
+/* 封面左下装饰：双圆环（纯 CSS） */
+section.lead::before {
+  content: '';
+  position: absolute;
+  left: 100px;
+  bottom: 76px;
+  width: 64px;
+  height: 64px;
+  border: 4px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  box-shadow: 30px 0 0 -4px rgba(255, 255, 255, 0.28);
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.36em;
+  border-radius: 6px;
+  background: #ede9fe;
+  color: #6d28d9;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.86em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border-radius: 14px;
+  background: #1e1b4b;
+  box-shadow: 0 12px 30px rgba(76, 29, 149, 0.25);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #ede9fe;
+  font-size: 0.62em;
+}
+
+/* 深色代码卡上的高亮 token */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #c4b5fd; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #86efac; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #8b8aa8; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #fcd34d; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #f9a8d4; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #93c5fd; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.45;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 1px solid #ddd6fe;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 10px 20px;
+  border: 1px solid #ede9fe;
+  color: #322a63;
+}
+
+section table tr:nth-child(even) td {
+  background: #faf5ff;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 18px 26px;
+  border-left: 6px solid #ec4899;
+  border-radius: 0 12px 12px 0;
+  background: #fdf2f8;
+  color: #831843;
+  font-size: 0.94em;
+  font-style: normal;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #831843;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 26px;
+  left: 80px;
+  right: 80px;
+  margin: 0;
+  color: #8b83b8;
+  font-size: 0.54em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 26px;
+  left: 80px;
+  margin: 0;
+  color: #a29ac9;
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+}
+
+section::after {
+  bottom: 22px;
+  right: 80px;
+  color: #a78bfa;
+  font-size: 0.52em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+section.lead > header,
+section.lead > footer {
+  color: rgba(253, 242, 255, 0.78);
+}
+
+section.lead::after {
+  color: rgba(253, 242, 255, 0.78);
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}

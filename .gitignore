@@ -1,13 +1,21 @@
-﻿# build & deps
+﻿# deps & build outputs
 node_modules/
 dist/
 release/
 target/
+*.pdb
+# generated frontend assets (build:marp 产物，不进 git)
+web/public/marp-core.browser.js
+web/public/marp-core.browser.js.map
+web/public/katex/
+# spike 实测产物（本地保留，不进 git；需要时按 docs 复现）
 spike/**/node_modules/
 spike/**/target/
 spike/**/out/
-spike/**/.cache/
-# runtime artifacts
+spike/**/shots/
+spike/visual/
+spike/**/downloads/
+# runtime
 *.log
 .DS_Store
 Thumbs.db

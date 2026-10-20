@@ -1,0 +1,317 @@
+/*
+ * @theme magazine
+ * @name 杂志排版
+ * @tags 杂志,编辑,产品,运营,暖色,衬线
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：产品发布、运营方案、品牌故事等需要"编辑感/杂志感"的场合。
+ * 设计：暖纸底色 + 炭黑衬线标题 + 砖橙强调；标题大、留白多；代码块像"资料卡"；
+ *       引用做成 pull-quote；封面为炭黑底 + 橙色细线。全部离线、系统字体栈。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 60px 88px 76px;
+  background: #fbf8f1;
+  background-image: linear-gradient(180deg, #fdfbf6 0%, #fbf8f1 100%);
+  color: #24211c;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 27px;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页顶部双线（杂志刊头感） */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  top: 38px;
+  left: 88px;
+  right: 88px;
+  height: 3px;
+  border-top: 2px solid #24211c;
+  border-bottom: 1px solid #c2410c;
+}
+
+/* ---------- 标题层级（衬线、大字） ---------- */
+section h1,
+section h2,
+section h3 {
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+}
+
+section h1 {
+  margin: 0 0 0.45em;
+  color: #1c1917;
+  font-size: 2.2em;
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.015em;
+}
+
+section h2 {
+  margin: 0 0 0.55em;
+  color: #1c1917;
+  font-size: 1.52em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+section h2::before {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 4px;
+  margin-bottom: 0.34em;
+  background: #c2410c;
+}
+
+section h3 {
+  margin: 0.8em 0 0.3em;
+  color: #9a3412;
+  font-size: 1.06em;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+section p,
+section li {
+  color: #3f3a33;
+}
+
+section strong {
+  color: #1c1917;
+}
+
+section em {
+  color: #9a3412;
+}
+
+section a {
+  color: #9a3412;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.25em;
+}
+
+section li::marker {
+  color: #c2410c;
+}
+
+/* ---------- 封面页（炭黑 + 橙线） ---------- */
+section.lead {
+  align-items: flex-start;
+  justify-content: center;
+  padding: 92px 104px;
+  background: #1c1917;
+  background-image: linear-gradient(155deg, #26211c 0%, #1c1917 60%, #171412 100%);
+  color: #fdf8ef;
+}
+
+section.lead h1 {
+  margin: 0 0 0.42em;
+  color: #fdf8ef;
+  font-size: 2.7em;
+  font-weight: 700;
+  line-height: 1.18;
+}
+
+section.lead h2 {
+  padding: 0.5em 0 0;
+  border-top: 3px solid #c2410c;
+  color: #e7d9c8;
+  font-size: 1.1em;
+  font-weight: 400;
+  font-style: italic;
+}
+
+section.lead h2::before {
+  display: none;
+}
+
+section.lead h3 {
+  color: #c9a886;
+  font-style: normal;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #efe4d6;
+}
+
+section.lead a {
+  color: #f0b48a;
+}
+
+/* 封面右上角刊号感装饰 */
+section.lead::before {
+  content: '';
+  position: absolute;
+  top: 76px;
+  right: 104px;
+  width: 88px;
+  height: 3px;
+  background: #c2410c;
+  box-shadow: 0 10px 0 rgba(194, 65, 12, 0.45);
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.1em 0.34em;
+  border-radius: 3px;
+  background: #efe6d6;
+  color: #9a3412;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.85em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border: 0;
+  border-left: 5px solid #c2410c;
+  border-radius: 0 10px 10px 0;
+  background: #f3ecdf;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #2b2620;
+  font-size: 0.61em;
+}
+
+/* 暖纸代码块高亮 token：纸张上的墨水色 */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #9a3412; font-weight: 600; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #4d7c0f; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #a8a29e; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr { color: #b45309; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #1e3a8a; }
+section pre code .hljs-built_in,
+section pre code .hljs-variable { color: #0f766e; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.55em 0 1em;
+  border-collapse: collapse;
+  border-top: 2px solid #1c1917;
+  border-bottom: 2px solid #1c1917;
+  font-size: 0.74em;
+  line-height: 1.5;
+}
+
+section table th {
+  padding: 10px 20px;
+  border: 0;
+  border-bottom: 1px solid #d6c9b6;
+  background: transparent;
+  color: #1c1917;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 0.96em;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 9px 20px;
+  border: 0;
+  border-bottom: 1px solid #ece3d4;
+  color: #3f3a33;
+}
+
+/* ---------- 引用（pull-quote） ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 16px 26px;
+  border-left: 5px solid #c2410c;
+  background: #f7efe2;
+  color: #6b4a2f;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 1.04em;
+  font-style: italic;
+  line-height: 1.55;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #6b4a2f;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 14px;
+  left: 88px;
+  right: 88px;
+  margin: 0;
+  color: #7a6f5f;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 0.5em;
+  font-style: italic;
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 28px;
+  left: 88px;
+  margin: 0;
+  color: #8c8071;
+  font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun', serif;
+  font-size: 0.48em;
+  letter-spacing: 0.06em;
+}
+
+section::after {
+  bottom: 24px;
+  right: 88px;
+  color: #8c8071;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 0.52em;
+  letter-spacing: 0.1em;
+}
+
+section.lead > header,
+section.lead > footer {
+  color: #b7a794;
+}
+
+section.lead::after {
+  color: #b7a794;
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}

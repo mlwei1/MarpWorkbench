@@ -1,0 +1,289 @@
+/*
+ * @theme business-blue
+ * @name 商务蓝
+ * @tags 商务,汇报,评审,蓝色,浅色
+ * @size 16:9 1280px 720px
+ * @auto-scaling true
+ *
+ * 适用场景：工作汇报、方案评审、项目复盘等正式商务场合。
+ * 设计：白底 + 深蓝主色 + 左侧竖向强调条；封面为深蓝渐变；中文系统字体栈。
+ * 全部离线：不引用任何外网字体/图片，仅 @import 内置 default 主题。
+ */
+
+@import 'default';
+
+/* ---------- 基础容器 ---------- */
+section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 1280px;
+  height: 720px;
+  padding: 64px 76px 72px 84px;
+  background: #ffffff;
+  background-image: linear-gradient(180deg, #f7f9fc 0%, #ffffff 28%);
+  color: #1a2233;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', sans-serif;
+  font-size: 28px;
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* 内容页左侧强调条 */
+section:not(.lead)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: linear-gradient(180deg, #1e5eff 0%, #60a5fa 100%);
+}
+
+/* ---------- 标题层级 ---------- */
+section h1 {
+  margin: 0 0 0.5em;
+  color: #0b2a6b;
+  font-size: 2.05em;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+section h2 {
+  margin: 0 0 0.55em;
+  padding-bottom: 0.28em;
+  border-bottom: 3px solid #dbe7ff;
+  color: #143d8c;
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+section h3 {
+  margin: 0.7em 0 0.35em;
+  color: #1e5eff;
+  font-size: 1.14em;
+  font-weight: 700;
+}
+
+section p,
+section li {
+  color: #263248;
+}
+
+section strong {
+  color: #0b2a6b;
+}
+
+section a {
+  color: #1e5eff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+section ul,
+section ol {
+  margin-left: 0.2em;
+  padding-left: 1.2em;
+}
+
+section li::marker {
+  color: #1e5eff;
+}
+
+/* ---------- 封面页 ---------- */
+section.lead {
+  justify-content: center;
+  align-items: flex-start;
+  padding: 84px 96px;
+  background: linear-gradient(135deg, #0a2a66 0%, #123f9e 55%, #1e5eff 100%);
+  color: #ffffff;
+  text-align: left;
+}
+
+section.lead h1 {
+  margin: 0 0 0.35em;
+  color: #ffffff;
+  font-size: 2.6em;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+section.lead h2 {
+  padding: 0;
+  border: 0;
+  color: #c7dbff;
+  font-size: 1.2em;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+section.lead h3 {
+  color: #9dc0ff;
+}
+
+section.lead p,
+section.lead li,
+section.lead strong {
+  color: #e8f1ff;
+}
+
+section.lead a {
+  color: #ffffff;
+}
+
+/* 封面右上角装饰线（纯 CSS） */
+section.lead::before {
+  content: '';
+  position: absolute;
+  top: 64px;
+  right: 72px;
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #60a5fa, #93c5fd);
+}
+
+/* ---------- 代码 ---------- */
+section code {
+  padding: 0.12em 0.38em;
+  border-radius: 6px;
+  background: #eaf1ff;
+  color: #123f9e;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.86em;
+}
+
+section pre {
+  margin: 0.8em 0 1em;
+  padding: 24px 28px;
+  border-radius: 12px;
+  background: #0f1c33;
+  box-shadow: 0 10px 24px rgba(11, 42, 107, 0.18);
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+section pre code {
+  padding: 0;
+  background: transparent;
+  color: #dbe9ff;
+  font-size: 0.62em;
+}
+
+/* 深色代码块上的高亮 token（保证对比度） */
+section pre code .hljs-keyword,
+section pre code .hljs-selector-tag,
+section pre code .hljs-literal { color: #7fb2ff; }
+section pre code .hljs-string,
+section pre code .hljs-regexp { color: #9be6b4; }
+section pre code .hljs-comment,
+section pre code .hljs-quote { color: #7b8cad; font-style: italic; }
+section pre code .hljs-number,
+section pre code .hljs-attr,
+section pre code .hljs-built_in { color: #ffd08a; }
+section pre code .hljs-title,
+section pre code .hljs-function { color: #8fd3ff; }
+section pre code .hljs-variable,
+section pre code .hljs-params { color: #e2ecff; }
+
+/* ---------- 表格 ---------- */
+section table {
+  width: auto;
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+  font-size: 0.76em;
+  line-height: 1.45;
+}
+
+section table th {
+  padding: 12px 20px;
+  border: 1px solid #d8e4f6;
+  background: #eaf1ff;
+  color: #143d8c;
+  font-weight: 700;
+  text-align: left;
+}
+
+section table td {
+  padding: 11px 20px;
+  border: 1px solid #e2eaf5;
+  color: #263248;
+}
+
+section table tr:nth-child(even) td {
+  background: #f7fafd;
+}
+
+/* ---------- 引用 ---------- */
+section blockquote {
+  margin: 0.8em 0;
+  padding: 18px 26px;
+  border-left: 6px solid #1e5eff;
+  border-radius: 0 10px 10px 0;
+  background: #f1f6ff;
+  color: #34425c;
+  font-size: 0.92em;
+  font-style: normal;
+}
+
+section blockquote p {
+  margin: 0;
+  color: #34425c;
+}
+
+/* ---------- 页眉 / 页脚 / 页码 ---------- */
+section > header {
+  position: absolute;
+  top: 26px;
+  left: 84px;
+  right: 76px;
+  margin: 0;
+  padding: 0 0 6px;
+  border-bottom: 1px solid #e3ebf7;
+  color: #6b7c99;
+  font-size: 0.55em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+section > footer {
+  position: absolute;
+  bottom: 26px;
+  left: 84px;
+  margin: 0;
+  color: #8a98b0;
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+}
+
+section::after {
+  bottom: 22px;
+  right: 76px;
+  color: #93a4c0;
+  font-size: 0.52em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+section.lead > header,
+section.lead > footer {
+  border-bottom: 0;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+section.lead::after {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ---------- 排版增强：标题自动平衡换行（避免封面标题掉单字） ---------- */
+section h1,
+section h2,
+section h3,
+section.lead h1,
+section.lead h2 {
+  text-wrap: balance;
+}
