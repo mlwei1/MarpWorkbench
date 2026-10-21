@@ -324,3 +324,70 @@ doRender()（async，token 防竞态）
 - 远程图片如果需要导出内联，由 ExportPanel 处理（export-eng 已实现；`renderForExport` 的 html 里仍是原 URL 或代理 URL，最终以导出面板处理为准）。
 - 图片原位编辑依赖 export-eng 的 compose 函数；文件未更新时回退为"新建图片"（不影响编辑）。
 - 预览 objectURL 仍未 revoke（M2 遗留，量小）。
+
+---
+
+## 12. M3.1 体验修复：预览滚动稳定 + 全屏播放（frontend-core）
+
+> 契约：[`docs/UI_CONTRACT_M3_FIX.md`](../UI_CONTRACT_M3_FIX.md) ｜ 用户反馈：①编辑区末尾打字时预览从顶部"溜"到底部；②要全屏播放 + 方向键翻页。
+
+### 12.1 滚动跳动根因与修复（方案 A：稳定宿主文档 + 原位更新）
+
+**根因**：`PreviewPane` 的 `srcdoc` 是 computed 且依赖内容；每次按键 → iframe 整页重载 → scrollTop=0 → `onLoad` 里 `scrollToPage(props.page)`（smooth）再从顶部滑到底部；`html{scroll-behavior:smooth}` 放大；mermaid/资产二次更新会再触发一轮。
+
+**修复**（`web/src/preview/PreviewPane.vue` 重构）：
+
+1. `srcdoc` 只生成一次（常量骨架）：CSP/base + `<style id="mwb-theme-style">` + 固定基础样式 + `<div id="mwb-root">`。**整个编辑会话 iframe 只 load 一次**。
+2. 内容变化时父窗口直接操作同源 iframe（不导航、不 reload）：
+   - 更新 `style#mwb-theme-style.textContent`；
+   - 更新 `#mwb-root.innerHTML`；
+   - 调 `MarpCoreBundle.MarpCore.browser(doc.body)`（首次 load 往 iframe 注入一次 `window.__mwbApplyMarpHelper`，后续直接调用；父窗口 `core.browser` 兜底）；
+   - **先在旧布局恢复滚动、helper 后再恢复一次**：`captureView` 记录当前 slide 索引 + 页内偏移，`restoreView` 直接设 `scrollingElement.scrollTop`（显式 `style.scrollBehavior='auto'`），内容更新路径全程禁止 smooth。
+3. **只有**「首次加载 / `props.page` 真变化（光标跳页、大纲跳页）」才 `scrollToPage`（behavior auto）。
+4. 异步二次更新（mermaid 完成后的 html、资产 dataURL/远程代理）走同一 preserve 路径并保持位置；`prepareToken` + `applyToken` 双自增 token 丢弃过期结果。
+5. 兜底：原位更新抛错 → `fallbackReload` 整页重载，重载前隐藏 iframe、load 后先恢复原 slide/offset 再显示（无可见滑动）。
+6. 移除 iframe 内 `html{scroll-behavior:smooth}`；空 deck 提示改为覆盖层（iframe 常驻，不反复 load）。
+
+### 12.2 全屏播放（`web/src/preview/FullscreenPlayer.vue`）
+
+- props `{html, css, page, pageCount, width, height, title?}`，emits `close`。
+- 黑底 16:9 单页：稳定 iframe 宿主，内容只写入一次；翻页只切换 `svg[data-marpit-svg]` 显示 + `transform: translate(-50%,-50%) scale(min(vw/w, vh/h))`；`.mwb-player[data-page]` 便于测试。
+- 全屏：`requestFullscreen()` 优先；被拒/不支持（如 headless）自动退化为 `position:fixed;inset:0` 覆盖层，功能等价；`fullscreenchange` 检测到退出全屏 → 关闭播放。
+- 键盘（window capture + preventDefault）：`→ ↓ Space PageDown Enter` 下一页；`← ↑ PageUp Backspace` 上一页；`Home/End` 首/尾；`Esc` 退出。
+- HUD：标题 + `当前 / 总页数` + 上一页/下一页/退出按钮；底部「← → 翻页 · Esc 退出」；鼠标移动显示、静止 2s 淡出。
+- 打开锁定 body 滚动；卸载清理监听/全屏并恢复 body overflow；打开从当前编辑页开始，退出后编辑器页面不变。
+- `PreviewPane` 工具栏新增「▶ 全屏播放」按钮（`title`/`aria-label` 含"全屏播放"），传 `resolvedHtml`（已含 mermaid/资产 dataURL/远程代理）；`EditView` 把 deck 标题传给 PreviewPane 供 HUD 显示。
+
+### 12.3 样式
+
+- `main.css`：`.preview-scroll{position:relative}`、`.preview-empty-overlay`（空 deck 覆盖层，不销毁 iframe）。
+- 播放层样式在组件 `<style scoped>`：fixed 覆盖层 z-index 4000（高于侧栏/对话框）。
+
+### 12.4 M3.1 自测（真实 release exe + Chrome，用户路径：首页→点 deck）
+
+脚本：`node web/scripts/verify-ui-m3fix.mjs --url http://127.0.0.1:8896 --token …`（12 页 deck，末尾连续输入 33 字符）
+
+| 检查 | 结果 |
+| --- | --- |
+| 打字期间 iframe 未重载（`contentWindow` 恒等） | ✅ 稳定宿主生效 |
+| 末尾打字滚动稳定 | ✅ `samples=33 bad=0 zero=0 finalTop=7669/7669`（始终停在末页） |
+| 内容确实更新 | ✅ 新字符进入预览/文档 |
+| 光标跳第 5 页 → 预览跟随 | ✅ `{index:5, top:2986}` |
+| 光标跳第 1 页 → 预览回顶部 | ✅ scrollTop=18（iframe body 顶部 padding，非 0 属正常） |
+| 全屏播放按钮/播放层出现 | ✅ `.mwb-player` 可见、起始页=当前编辑页 |
+| 播放层单页显示 | ✅ `{total:12, visible:1}` |
+| 方向键翻页（→→↓←） | ✅ `2,3,4,3` |
+| Home/End 首尾页 | ✅ `end=12 home=1` |
+| Esc 退出 + body 滚动恢复 | ✅ 播放层消失、`body.overflow=""` |
+| 页面 JS 错误 | ✅ 0 |
+| M1/M2 回归 `verify-ui.mjs`（真实 exe） | ✅ 全绿 |
+| M3 回归 `verify-ui-m3.mjs`（mock：mermaid/网络图片/图片编辑） | ✅ 全绿 |
+
+截图/报告：`%TEMP%\mwb-verify-m3fix\`（typing-scroll.png / fullscreen.png / report.json）。
+
+### 12.5 已知边界 / 联调阻塞
+
+- 首次加载/跳页时预览滚动到 slide 上沿（iframe body 有 18px padding），属视觉留白，不影响使用。
+- 全屏播放内翻页不同步编辑器当前页（退出后编辑器页面不变，符合契约）。
+- **曾阻塞 Lead e2e 的 server bug（已修复并验证）**：`scripts/visual-e2e-m3fix.mjs` 用中文 deck 名（`M3.1-滚动-全屏`，id 含 `.`）后直接深链打开 `/edit/<id>`；旧 release exe 的 SPA fallback 条件 `if !rel.contains('.')` → 带点的 id 返回 404 JSON（ASCII 深链正常；任何带 `.` 的 deck 名刷新都会 404）。desktop-packaging 已改为「前端路由前缀 或 末段无扩展名」→ index.html，并重建 release exe（2026-10-21 19:59:54）。修复后 Lead 的 `visual-e2e-m3fix.mjs` **14/14 全过**。
+- mermaid 首次加载 3–5s 期间预览先显示代码块再替换 SVG（同步占位策略，不跳动）。

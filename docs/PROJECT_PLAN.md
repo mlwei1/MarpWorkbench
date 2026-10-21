@@ -1,6 +1,7 @@
-# MarpWorkbench（Marp 工作台）—— 项目计划 v1.4
+# MarpWorkbench（Marp 工作台）—— 项目计划 v1.5
 
-> 状态：**M3 完成（2026-10-20 验收通过）**——Mermaid 图表 / 老 md 网络图片兼容 / 图片原位编辑 已落地 ｜ 版本：v1.4 ｜ 更新：2026-10-20
+> 状态：**M3.1 完成（2026-10-21 验收通过）**——修复打字时预览乱滚 + 新增全屏播放（方向键翻页）｜ 版本：v1.5 ｜ 更新：2026-10-21
+> v1.5 变更：M3.1 体验修复完成并实测验收（报告见 `docs/M3_1_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3_FIX.md`）。
 > v1.4 变更：M3 批次完成并实测验收（报告见 `docs/M3_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3.md`）。
 > v1.3 变更：M2 "非 Markdown 用户友好"批次完成并实测验收（报告见 `docs/M2_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M2.md`）。
 > v1.2 变更：M1 完成并实测验收（服务端 + 前端 + 主题切换 + PDF/PPTX/HTML 导出全链路，报告见 `docs/M1_ACCEPTANCE.md`）。
@@ -577,6 +578,13 @@ marp-workbench/
 - **网络图片兼容**：老 md 里的 `http(s)://` 图片经服务端同源代理即时显示（SSRF 防护、缓存）；编辑器 Banner 一键下载到本地 `assets/remote-*.png` 并重写 Markdown；导出时自动内联。
 - **图片原位编辑**：光标在已有图片行 → 「编辑图片」预填全部属性 → 保存后原位替换该行（不新增图片）；支持普通图与 `![bg]` 背景图（左右占比/透明度/适配/模糊灰度）。
 - 验收：`node scripts/visual-e2e-m3.mjs` **21/21**；M1 回归 13/13、M2 回归 26/26、API 冒烟 12/12；mermaid 专项 28+9+13 全绿；exe **12.38MB**（内嵌 mermaid 5MB）。
+
+### M3.1 已完成（2026-10-21，详见 `docs/M3_1_ACCEPTANCE.md`）
+
+- **修复预览滚动跳动**：用户反馈"在末尾写 md，预览每改一个字符就从最上方溜到最下方"。PreviewPane 重构为「稳定宿主文档 + 原位更新」：iframe 只 load 一次，内容变化时在同源 iframe 内更新主题 style + 内容容器 + 重跑 marp helper，并立即恢复原 slide/偏移；内容更新绝不滚动/平滑，只有首次加载或用户跳页才定位；mermaid/资产二次更新同样保持位置。实测：末尾连续打字 44 次采样 `min=1.00 / topReturns=0 / 波动=0.00`。
+- **新增全屏播放**：新增 `FullscreenPlayer.vue`，预览工具栏「▶ 全屏播放」；黑底 16:9 单页、HUD（标题/页码/翻页/退出）、方向键 + Space/PageUp/Down/Home/End/Esc 全支持；requestFullscreen 失败自动退化固定覆盖层。实测 14/14（起始页=当前页、翻页/首尾页/Esc 全对）。
+- **顺手修 server SPA fallback**：deck id 含点号（如 `M3.1-滚动-全屏`）时 `/edit/<id>` 深链/刷新 404；改为前端路由前缀或末段无扩展名才 fallback。服务端 smoke 42/42。
+- 验收：`node scripts/visual-e2e-m3fix.mjs` **14/14**；M1 13/13、M2 26/26、M3 21/21、API 冒烟 12/12；exe 12.39MB。
 
 ### 下一步（M4）
 

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { loadMarpCore } from '../marp/renderer'
 import { fetchDeckAssetBlob } from '../api'
 import { loadRemoteImages } from '../integrations/optionalComponents'
+import FullscreenPlayer from './FullscreenPlayer.vue'
 
 const props = defineProps<{
   html: string
@@ -14,6 +15,12 @@ const props = defineProps<{
   deckId?: string
   /** deck 资产列表（mock 模式下 url 可能是 dataURL） */
   assets?: { path: string; url: string }[]
+  /** deck 标题（全屏播放 HUD 用） */
+  title?: string
+}>()
+
+const emit = defineEmits<{
+  'page-count': [count: number]
 }>()
 
 // deckId+path → objectURL 缓存（同一预览生命周期内复用）
@@ -48,45 +55,7 @@ async function resolveAssetUrl(path: string): Promise<string | null> {
   }
 }
 
-/** 把 iframe 内相对图片路径（assets/x.png）替换成可访问的 blob/data URL（预览用，不改 Markdown） */
-async function resolveDeckAssets(doc: Document): Promise<void> {
-  if (!props.deckId) return
-  const pending: Promise<void>[] = []
-
-  doc.querySelectorAll('img').forEach((img) => {
-    const src = img.getAttribute('src') || ''
-    if (!/^\.?\/?assets\//.test(src) && !src.startsWith('assets/')) return
-    pending.push(
-      resolveAssetUrl(src).then((url) => {
-        if (url) img.setAttribute('src', url)
-      }),
-    )
-  })
-
-  doc.querySelectorAll<HTMLElement>('[style*="assets/"]').forEach((el) => {
-    const style = el.getAttribute('style') || ''
-    const matches = [...style.matchAll(/assets\/[^)"'\s]+/g)].map((m) => m[0])
-    if (!matches.length) return
-    pending.push(
-      (async () => {
-        let next = style
-        for (const raw of new Set(matches)) {
-          const url = await resolveAssetUrl(raw)
-          if (url) next = next.split(raw).join(url)
-        }
-        if (next !== style) el.setAttribute('style', next)
-      })(),
-    )
-  })
-
-  await Promise.all(pending)
-}
-
-/**
- * M3：把 html 里的远程图片（http(s)://）换成同源代理 URL（`/api/proxy/image?url=…&token=…`）。
- * 代理路由允许 iframe 的 <img> 不带 header 访问；CSP `img-src 'self'` 继续生效，零外网请求。
- * export-eng 的 remoteImages.ts 未就绪时安全跳过（图片保持原 URL，会被 CSP 拦下但不报错）。
- */
+// ---------------- M3：远程图片代理 ----------------
 let remoteImagesProxy: ((url: string) => string) | null = null
 let remoteImagesLoaded = false
 
@@ -128,7 +97,6 @@ async function prepareRemoteImages(html: string): Promise<string> {
     /(<img\b[^>]*?\bsrc=)(["'])(https?:\/\/[^"']+)\2/gi,
     (_m, prefix: string, quote: string, url: string) => `${prefix}${quote}${escapeAttr(toProxy(url))}${quote}`,
   )
-  // marp 背景图：<figure style="background-image:url('https://…')">
   next = next.replace(
     /url\((\s*)(["']?)(https?:\/\/[^)'"\s]+)\2(\s*)\)/gi,
     (_m, sp1: string, quote: string, url: string, sp2: string) => `url(${sp1}${quote}${toProxy(url)}${quote}${sp2})`,
@@ -136,10 +104,7 @@ async function prepareRemoteImages(html: string): Promise<string> {
   return next
 }
 
-const emit = defineEmits<{
-  'page-count': [count: number]
-}>()
-
+// ---------------- 稳定宿主文档（M3.1） ----------------
 const wrap = ref<HTMLElement>()
 const frame = ref<HTMLIFrameElement>()
 const fitScale = ref(1)
@@ -147,59 +112,207 @@ const manualScale = ref(1)
 const fitMode = ref(true)
 const ready = ref(false)
 const frameHeight = ref(720)
-const resolvedHtml = ref('')
-let prepareToken = 0
+const currentHtml = ref('')
+const pageCount = ref(0)
+const playerOpen = ref(false)
 let resizeObserver: ResizeObserver | null = null
 
 const effectiveScale = computed(() => (fitMode.value ? fitScale.value : manualScale.value))
 const empty = computed(() => !props.html || props.html.trim() === '')
 
 /**
- * 预览前先把 html 里的 `assets/x.png` 预解析成 blob/data URL。
- * 原因：Marp 背景图是 `<figure style="background-image:url('assets/x.png')">`，
- * 若直接放进 iframe，浏览器会先按 iframe 相对路径发请求（404）再被 onLoad 后处理，体验差且闪图。
+ * iframe 的 srcdoc 只生成一次：固定骨架（CSP/base/主题样式占位/内容容器）。
+ * 内容变化时不再重建 srcdoc，而是父窗口直接更新同源 iframe 的 DOM（不 reload → 滚动不丢）。
  */
+const hostSrcdoc = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<base href="${location.origin}/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'unsafe-inline'">
+<style id="mwb-theme-style"></style>
+<style id="mwb-base-style">
+html,body{margin:0;padding:0}
+body{background:#eef1f6;padding:18px 0 45vh}
+div.marpit > svg{display:block;margin:0 auto 22px;box-shadow:0 3px 16px rgba(15,23,42,.16);background:#fff}
+div.marpit > svg:last-child{margin-bottom:0}
+</style></head><body><div id="mwb-root"></div></body></html>`
+
+let hostLoaded = false
+let pendingHtml: string | null = null
+let lastAppliedHtml = ''
+let prepareToken = 0
+let applyToken = 0
+let pendingPage: number | null = null
+/** 原位更新失败时的兜底：记录待恢复的滚动位置 */
+let fallbackView: { index: number; offset: number; top: number } | null = null
+
+function scrollingEl(doc: Document): Element {
+  return (doc.scrollingElement || doc.documentElement) as Element
+}
+
+interface ViewState {
+  index: number
+  offset: number
+  top: number
+}
+
+/** 记录当前可见 slide 索引 + 页内偏移（用于原位更新后立即恢复） */
+function captureView(doc: Document): ViewState {
+  const sc = scrollingEl(doc)
+  const top = sc.scrollTop
+  const slides = [...doc.querySelectorAll('svg[data-marpit-svg]')] as HTMLElement[]
+  if (!slides.length) return { index: 0, offset: 0, top }
+  let index = 0
+  const offsetOf = (el: HTMLElement): number => el.getBoundingClientRect().top + sc.scrollTop
+  for (let i = 0; i < slides.length; i++) {
+    if (offsetOf(slides[i]) <= top + 1) index = i
+    else break
+  }
+  return { index, offset: top - offsetOf(slides[index]), top }
+}
+
+/** 立即恢复（禁止平滑滚动） */
+function restoreView(doc: Document, view: ViewState): void {
+  const sc = scrollingEl(doc) as HTMLElement | Element
+  if (sc instanceof HTMLElement) sc.style.scrollBehavior = 'auto'
+  const slides = [...doc.querySelectorAll('svg[data-marpit-svg]')] as HTMLElement[]
+  if (!slides.length) {
+    sc.scrollTop = view.top
+    return
+  }
+  const index = Math.min(Math.max(view.index, 0), slides.length - 1)
+  const targetTop = slides[index].getBoundingClientRect().top + sc.scrollTop + view.offset
+  sc.scrollTop = Math.max(0, targetTop)
+}
+
+/** 滚动到指定页（1-based），默认 behavior:'auto'，绝不用于内容更新路径 */
+function scrollToPage(doc: Document, page: number): void {
+  const sc = scrollingEl(doc) as HTMLElement | Element
+  if (sc instanceof HTMLElement) sc.style.scrollBehavior = 'auto'
+  const slides = [...doc.querySelectorAll('svg[data-marpit-svg]')] as HTMLElement[]
+  if (!slides.length) return
+  const index = Math.min(Math.max(page - 1, 0), slides.length - 1)
+  const top = slides[index].getBoundingClientRect().top + sc.scrollTop
+  sc.scrollTop = Math.max(0, top)
+}
+
+/** 应用主题 CSS（单独更新，不重建内容） */
+function applyThemeStyle(doc: Document): void {
+  const style = doc.getElementById('mwb-theme-style')
+  if (style && style.textContent !== props.css) style.textContent = props.css
+}
+
+/** 重新执行 marp-core 浏览器 helper（SVG polyfill / auto-scaling） */
+async function runBrowserHelper(doc: Document): Promise<void> {
+  const win = doc.defaultView as (Window & { __mwbApplyMarpHelper?: () => void }) | null
+  try {
+    win?.__mwbApplyMarpHelper?.()
+  } catch {
+    /* ignore */
+  }
+  try {
+    const core = await loadMarpCore()
+    core.browser(doc.body)
+  } catch (err) {
+    console.warn('[preview] marp helper 执行失败', err)
+  }
+}
+
+type CommitMode = 'initial' | 'preserve' | 'page'
+
+/**
+ * 原位更新 iframe 内容（不 reload）：
+ * - preserve：保持当前 slide/偏移（打字、mermaid/资产二次更新都用这个）
+ * - initial / page：滚动到目标页（behavior:auto）
+ */
+async function commitContent(html: string, mode: CommitMode, targetPage?: number): Promise<void> {
+  const doc = frame.value?.contentDocument
+  if (!doc || !doc.getElementById('mwb-root')) return
+  const token = ++applyToken
+  const root = doc.getElementById('mwb-root') as HTMLElement
+  const view = mode === 'preserve' ? captureView(doc) : null
+  applyThemeStyle(doc)
+
+  try {
+    if (root.innerHTML !== html) root.innerHTML = html
+    // 先在旧布局下恢复滚动（绝大多数情况 slide 高度固定 720px，位置完全一致）
+    if (view) restoreView(doc, view)
+    await runBrowserHelper(doc)
+    if (token !== applyToken) return
+    if (view) restoreView(doc, view)
+    else scrollToPage(doc, targetPage ?? props.page)
+    lastAppliedHtml = html
+    currentHtml.value = html
+    ready.value = true
+    const count = doc.querySelectorAll('svg[data-marpit-svg]').length
+    pageCount.value = count
+    emit('page-count', count)
+    updateScale()
+  } catch (err) {
+    console.warn('[preview] 原位更新失败，回退整页重载', err)
+    fallbackReload(html, view)
+  }
+}
+
+/** 兜底：原位更新异常时整页重载（load 前隐藏，load 后先恢复滚动再显示） */
+function fallbackReload(html: string, view: ViewState | null): void {
+  const f = frame.value
+  if (!f) return
+  fallbackView = view
+  f.style.visibility = 'hidden'
+  const script = ''
+  f.srcdoc = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<base href="${location.origin}/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'unsafe-inline'">
+<style id="mwb-theme-style">${props.css}</style>
+<style id="mwb-base-style">
+html,body{margin:0;padding:0}
+body{background:#eef1f6;padding:18px 0 45vh}
+div.marpit > svg{display:block;margin:0 auto 22px;box-shadow:0 3px 16px rgba(15,23,42,.16);background:#fff}
+div.marpit > svg:last-child{margin-bottom:0}
+</style></head><body><div id="mwb-root">${html}</div>${script}</body></html>`
+}
+
+/** 解析 html 中的相对资产 + 远程图片（异步；token 防竞态） */
 async function prepareHtml(): Promise<void> {
   const token = ++prepareToken
   let html = props.html || ''
   if (!html) {
-    resolvedHtml.value = ''
+    pendingHtml = ''
+    currentHtml.value = ''
+    if (hostLoaded) {
+      const doc = frame.value?.contentDocument
+      const root = doc?.getElementById('mwb-root')
+      if (root) root.innerHTML = ''
+      ready.value = false
+      pageCount.value = 0
+      emit('page-count', 0)
+    }
     return
   }
-  // 1) deck 相对资产 assets/x.png → dataURL/blob（避免 iframe 相对路径 404）
   if (props.deckId) {
-    const refs = new Map<string, string>()
-    for (const m of html.matchAll(/assets\/[^"'()<>\s&]+/g)) refs.set(m[0], m[0])
+    const refs = new Set<string>()
+    for (const m of html.matchAll(/assets\/[^"'()<>\s&]+/g)) refs.add(m[0])
     let next = html
-    for (const path of refs.keys()) {
+    for (const path of refs) {
       const url = await resolveAssetUrl(path)
       if (token !== prepareToken) return
       if (url) next = next.split(path).join(url)
     }
     html = next
   }
-  // 2) M3：远程图片 http(s):// → 同源代理 URL（代理模块未就绪时保持原样）
   try {
     html = await prepareRemoteImages(html)
   } catch (err) {
     console.warn('[preview] 远程图片代理预处理失败', err)
   }
-  if (token === prepareToken) resolvedHtml.value = html
-}
+  if (token !== prepareToken) return
 
-const srcdoc = computed(() => {
-  if (empty.value) return ''
-  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
-<base href="${location.origin}/">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; script-src 'unsafe-inline'">
-<style>html,body{margin:0;padding:0}${props.css}</style>
-<style>
-html{scroll-behavior:smooth}
-body{background:#eef1f6;padding:18px 0 45vh}
-div.marpit > svg{display:block;margin:0 auto 22px;box-shadow:0 3px 16px rgba(15,23,42,.16);background:#fff}
-div.marpit > svg:last-child{margin-bottom:0}
-</style></head><body>${resolvedHtml.value}</body></html>`
-})
+  pendingHtml = html
+  if (!hostLoaded) return // 等 iframe 首次 load 后统一 commit
+  const mode: CommitMode = lastAppliedHtml === '' ? 'initial' : 'preserve'
+  const target = pendingPage ?? props.page
+  pendingPage = null
+  void commitContent(html, mode, target)
+}
 
 function updateScale(): void {
   if (!wrap.value) return
@@ -210,51 +323,56 @@ function updateScale(): void {
   }
 }
 
-function scrollToPage(page: number): void {
-  const doc = frame.value?.contentDocument
-  if (!doc) return
-  const slides = doc.querySelectorAll('svg[data-marpit-svg]')
-  if (!slides.length) return
-  const index = Math.min(Math.max(page - 1, 0), slides.length - 1)
-  ;(slides[index] as HTMLElement).scrollIntoView({ block: 'start', behavior: ready.value ? 'smooth' : 'auto' })
-}
-
 async function onLoad(): Promise<void> {
   const f = frame.value
   const doc = f?.contentDocument
   if (!doc) return
-  ready.value = false
+  f!.style.visibility = ''
+
+  if (fallbackView) {
+    // 兜底重载完成：先恢复滚动位置，再显示
+    try {
+      await runBrowserHelper(doc)
+    } catch {
+      /* ignore */
+    }
+    restoreView(doc, fallbackView)
+    fallbackView = null
+    f!.style.visibility = ''
+    ready.value = true
+    currentHtml.value = doc.getElementById('mwb-root')?.innerHTML || ''
+    pageCount.value = doc.querySelectorAll('svg[data-marpit-svg]').length
+    emit('page-count', pageCount.value)
+    updateScale()
+    return
+  }
+
+  hostLoaded = true
+  // 注入一次性的 helper 包装（后续每次原位更新调用，避免重复插 script）
   try {
-    // script:false + 手动调用 marp browser helper（缩放在 iframe 内执行，兼容性最好）
-    const core = await loadMarpCore()
     const script = doc.createElement('script')
     script.textContent =
-      "try { parent.MarpCoreBundle.MarpCore.browser(document.body) } catch (err) { console.error('marp browser helper failed', err) }"
+      "window.__mwbApplyMarpHelper = function () { try { parent.MarpCoreBundle.MarpCore.browser(document.body) } catch (err) { console.error('marp browser helper failed', err) } }"
     doc.body.appendChild(script)
-    try {
-      core.browser(doc.body)
-    } catch {
-      /* iframe 内脚本已兜底 */
-    }
   } catch (err) {
-    console.warn('[preview] marp helper 初始化失败', err)
+    console.warn('[preview] helper 注入失败', err)
   }
-  // M2：把 Markdown 中 assets/xxx.png 的图片解析为可显示的 blob/data URL（dataURL 用于 mock）
-  try {
-    await resolveDeckAssets(doc)
-  } catch (err) {
-    console.warn('[preview] 图片资产处理失败', err)
+
+  const target = pendingPage ?? props.page
+  pendingPage = null
+  if (pendingHtml != null) {
+    const html = pendingHtml
+    pendingHtml = null
+    await commitContent(html, 'initial', target)
+  } else {
+    ready.value = true
+    updateScale()
   }
-  ready.value = true
-  emit('page-count', doc.querySelectorAll('svg[data-marpit-svg]').length)
-  updateScale()
-  scrollToPage(props.page)
 }
 
 watch(
   () => [props.html, props.css],
   () => {
-    ready.value = false
     void prepareHtml()
   },
   { immediate: true },
@@ -270,13 +388,28 @@ watch(
 
 watch(
   () => props.page,
-  (page) => scrollToPage(page),
+  (page) => {
+    const doc = frame.value?.contentDocument
+    if (!doc || !hostLoaded) {
+      pendingPage = page
+      return
+    }
+    if (lastAppliedHtml === '') {
+      pendingPage = page
+      return
+    }
+    scrollToPage(doc, page)
+  },
 )
+
+function onOpenPlayer(): void {
+  if (empty.value) return
+  playerOpen.value = true
+}
 
 function setFit(): void {
   fitMode.value = true
   updateScale()
-  scrollToPage(props.page)
 }
 
 function setActual(): void {
@@ -314,6 +447,15 @@ onBeforeUnmount(() => {
       <span class="preview-title">预览</span>
       <span class="preview-scale">{{ Math.round(effectiveScale * 100) }}%</span>
       <div class="preview-actions">
+        <button
+          class="btn btn-ghost btn-sm"
+          title="全屏播放（方向键翻页）"
+          aria-label="全屏播放"
+          :disabled="empty"
+          @click="onOpenPlayer"
+        >
+          ▶ 全屏播放
+        </button>
         <button class="btn btn-ghost btn-sm" :class="{ active: fitMode }" title="适应宽度" @click="setFit">适应</button>
         <button class="btn btn-ghost btn-sm" :class="{ active: !fitMode && manualScale === 1 }" title="100%" @click="setActual">100%</button>
         <button class="btn btn-ghost btn-sm" title="缩小" @click="zoom(-0.1)">−</button>
@@ -321,13 +463,7 @@ onBeforeUnmount(() => {
       </div>
     </header>
     <div ref="wrap" class="preview-scroll">
-      <div v-if="empty" class="preview-empty">
-        <div class="preview-empty-icon">🖋️</div>
-        <p>开始输入 Markdown，右侧即时预览</p>
-        <p class="muted">用 <code>---</code> 分页；front-matter 里写 <code>theme:</code> 换主题</p>
-      </div>
       <div
-        v-else
         class="preview-scaler"
         :style="{ width: `${width * effectiveScale}px`, height: `${wrap?.clientHeight || 0}px` }"
       >
@@ -335,7 +471,7 @@ onBeforeUnmount(() => {
           ref="frame"
           class="preview-frame"
           title="Marp 预览"
-          :srcdoc="srcdoc"
+          :srcdoc="hostSrcdoc"
           :style="{
             width: `${width}px`,
             height: `${frameHeight}px`,
@@ -344,6 +480,23 @@ onBeforeUnmount(() => {
           @load="onLoad"
         />
       </div>
+      <div v-if="empty" class="preview-empty preview-empty-overlay">
+        <div class="preview-empty-icon">🖋️</div>
+        <p>开始输入 Markdown，右侧即时预览</p>
+        <p class="muted">用 <code>---</code> 分页；front-matter 里写 <code>theme:</code> 换主题</p>
+      </div>
     </div>
+
+    <FullscreenPlayer
+      v-if="playerOpen"
+      :html="currentHtml"
+      :css="css"
+      :page="page"
+      :page-count="Math.max(1, pageCount)"
+      :width="width"
+      :height="height"
+      :title="title || ''"
+      @close="playerOpen = false"
+    />
   </section>
 </template>

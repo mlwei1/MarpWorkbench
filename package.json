@@ -15,7 +15,8 @@
     "verify:smoke": "node scripts/smoke.mjs",
     "verify:visual": "node scripts/visual-e2e.mjs --embedded",
     "verify:m2": "node scripts/visual-e2e-m2.mjs",
-    "verify:m3": "node scripts/visual-e2e-m3.mjs"
+    "verify:m3": "node scripts/visual-e2e-m3.mjs",
+    "verify:m3fix": "node scripts/visual-e2e-m3fix.mjs"
   },
   "engines": {
     "node": ">=20"

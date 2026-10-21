@@ -708,6 +708,7 @@ watch(deckId, () => {
               :height="preview.height"
               :deck-id="deck?.id"
               :assets="deckAssets"
+              :title="title"
               @page-count="(n) => (pageCount = n)"
             />
             <div v-else-if="previewError" class="preview-error">

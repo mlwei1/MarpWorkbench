@@ -136,8 +136,15 @@ async fn static_handler(State(_state): State<Arc<AppState>>, req: Request) -> Re
         return bytes_response(bytes, util::mime_for_ext(&ext));
     }
 
-    // SPA fallback：`/`, `/edit/:id`, `/settings` 等前端路由返回 index.html
-    if !rel.contains('.') {
+    // SPA fallback：`/`、`/edit/:id`、`/settings` 等前端路由返回 index.html。
+    // 注意：不能用“整条路径不含 `.`”判断 —— deck id 可能包含点号（如 "M3.1-滚动-全屏"、"方案 v1.2"），
+    // 否则直接深链/刷新该页面会误判为静态资源而返回 404。
+    let last_segment = rel.rsplit('/').next().unwrap_or("");
+    let is_frontend_route = path == "/"
+        || path.starts_with("/edit/")
+        || path == "/settings"
+        || path.starts_with("/settings/");
+    if is_frontend_route || !last_segment.contains('.') {
         if let Some(index) = assets::read_web_index() {
             return bytes_response(index, "text/html; charset=utf-8");
         }

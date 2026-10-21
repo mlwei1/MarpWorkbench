@@ -571,10 +571,23 @@ code {
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  position: relative;
 }
 .preview-scaler {
   position: relative;
   flex: 0 0 auto;
+}
+/* M3.1：空 deck 提示覆盖在稳定宿主 iframe 之上（iframe 常驻，避免反复 load） */
+.preview-empty-overlay {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(244, 246, 251, 0.94);
+  z-index: 2;
 }
 .preview-frame {
   border: 0;
