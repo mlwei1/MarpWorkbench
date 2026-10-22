@@ -13,12 +13,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mlwei1/MarpWorkbench/stargazers"><img src="https://img.shields.io/github/stars/mlwei1/MarpWorkbench?style=flat-square" alt="Stars" /></a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest"><img src="https://img.shields.io/github/v/release/mlwei1/MarpWorkbench?style=flat-square&color=22c55e" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/exe-12.4%20MB-4f46e5?style=flat-square" alt="Size" />
   <img src="https://img.shields.io/badge/offline-100%25-22c55e?style=flat-square" alt="Offline" />
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
 </p>
+
+<p align="center">
+  <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">下载最新版 / Download latest release</a></b>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.exe">单文件 exe（12.4MB）</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.zip">zip</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/SHA256SUMS.txt">SHA256</a>
+</p>
+
+> **使用要求**：Windows 10/11（64 位）；导出需要系统自带的 Edge（或 Chrome）；无需 Node/Rust，离线可用。首次运行如遇 SmartScreen，点「更多信息 → 仍要运行」。
 
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-1.95-000000?style=flat-square&logo=rust" alt="Rust" />
@@ -91,7 +103,17 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 
 ## 🚀 快速开始
 
-### 使用（构建产物）
+### 方式一：下载现成 exe（推荐）
+
+到 [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest) 下载 `MarpWorkbench-*.exe`（单文件，约 12.4MB），双击即用：
+
+```
+MarpWorkbench-v0.1.0-win-x64.exe     # 单文件主程序
+MarpWorkbench-v0.1.0-win-x64.zip     # exe + 中英文 README + LICENSE
+SHA256SUMS.txt                        # 校验值
+```
+
+### 方式二：从源码构建
 
 仓库不提交二进制文件。克隆后本地构建即可得到**单文件 exe**：
 

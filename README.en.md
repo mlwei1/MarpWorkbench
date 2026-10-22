@@ -13,12 +13,24 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mlwei1/MarpWorkbench/stargazers"><img src="https://img.shields.io/github/stars/mlwei1/MarpWorkbench?style=flat-square" alt="Stars" /></a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest"><img src="https://img.shields.io/github/v/release/mlwei1/MarpWorkbench?style=flat-square&color=22c55e" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/exe-12.4%20MB-4f46e5?style=flat-square" alt="Size" />
   <img src="https://img.shields.io/badge/offline-100%25-22c55e?style=flat-square" alt="Offline" />
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
 </p>
+
+<p align="center">
+  <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">Download the latest release</a></b>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.exe">single .exe (12.4 MB)</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.zip">zip</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/SHA256SUMS.txt">SHA256</a>
+</p>
+
+> **Requirements**: Windows 10/11 (64-bit); export needs the built-in Edge (or Chrome); no Node/Rust required, fully offline. If SmartScreen appears on first run, choose “More info → Run anyway”.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-1.95-000000?style=flat-square&logo=rust" alt="Rust" />
@@ -91,7 +103,19 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
 
 ## 🚀 Quick start
 
-### Use it (build from source)
+### Option 1 — Download the prebuilt exe (recommended)
+
+Grab the latest from [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest):
+
+```
+MarpWorkbench-v0.1.0-win-x64.exe     # single-file executable
+MarpWorkbench-v0.1.0-win-x64.zip     # exe + README (zh/en) + LICENSE
+SHA256SUMS.txt                        # checksums
+```
+
+Double-click the exe — done.
+
+### Option 2 — Build from source
 
 Binaries are not committed to the repository — clone and build the single-file exe:
 
