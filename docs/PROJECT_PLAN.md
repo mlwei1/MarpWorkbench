@@ -1,6 +1,7 @@
-# MarpWorkbench（Marp 工作台）—— 项目计划 v1.5
+# MarpWorkbench（Marp 工作台）—— 项目计划 v1.6
 
-> 状态：**M3.1 完成（2026-10-21 验收通过）**——修复打字时预览乱滚 + 新增全屏播放（方向键翻页）｜ 版本：v1.5 ｜ 更新：2026-10-21
+> 状态：**M4 可编辑导出完成（2026-11-22 验收通过）**——PPTX 可编辑（Beta）：文字/列表/代码/表格为 PowerPoint 原生对象，背景保真，备注保留 ｜ 版本：v1.6 ｜ 更新：2026-11-22
+> v1.6 变更：M4 可编辑 PPTX 批次完成并实测验收（报告见 `docs/M4_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M4_PPTX_EDITABLE.md`）。
 > v1.5 变更：M3.1 体验修复完成并实测验收（报告见 `docs/M3_1_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3_FIX.md`）。
 > v1.4 变更：M3 批次完成并实测验收（报告见 `docs/M3_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3.md`）。
 > v1.3 变更：M2 "非 Markdown 用户友好"批次完成并实测验收（报告见 `docs/M2_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M2.md`）。
@@ -532,7 +533,7 @@ marp-workbench/
 
 ## 11. 发布计划
 
-- **分发物**：`MarpWorkbench-v0.1.0-win-x64.zip`（exe + README + LICENSE + SHA256SUMS.txt）；后续可提供单 exe。
+- **分发物**：`MarpWorkbench-v0.2.0-win-x64.zip`（exe + README + LICENSE + SHA256SUMS.txt）与单文件 exe；GitHub Release：https://github.com/mlwei1/MarpWorkbench/releases
 - **版本策略**：0.x 每周一个可用版本 → v1.0 稳定后发布。
 - **发布渠道**：先本地/U 盘分发；稳定后 GitHub Release（含更新日志）。不做静默自动更新（便携 exe 运行中文件被锁）；启动异步检查新版本 → 横幅提示手动替换。
 - **数据兼容**：配置/主题/工作区格式版本化；升级不丢主题与设置。
@@ -586,13 +587,22 @@ marp-workbench/
 - **顺手修 server SPA fallback**：deck id 含点号（如 `M3.1-滚动-全屏`）时 `/edit/<id>` 深链/刷新 404；改为前端路由前缀或末段无扩展名才 fallback。服务端 smoke 42/42。
 - 验收：`node scripts/visual-e2e-m3fix.mjs` **14/14**；M1 13/13、M2 26/26、M3 21/21、API 冒烟 12/12；exe 12.39MB。
 
-### 下一步（M4）
+### M4 可编辑导出已完成（2026-11-22，详见 `docs/M4_ACCEPTANCE.md`）
+
+- **PPTX 可编辑（Beta）**：导出面板第 4 种格式。原理：每页背景 = Marp 主题高清底图（文字透明化、表格隐藏）+ 前景 = 从渲染 DOM 计算样式提取的**真正的 PowerPoint 文本 / 列表 / 代码 / 表格对象**，演讲者备注写入 notes；16:9 13.333×7.5in / 4:3 10×7.5in 动态尺寸。
+- **可编辑范围**：标题/正文/列表/引用/代码（逐 token 颜色、等宽字体）/表格/备注；背景、装饰、图片、Mermaid、页码为底图（UI 与文档明确标注）。
+- **实测**：Lead E2E **23/23**（13 页：python-pptx 打开、13.333×7.5in、13/13 背景 blipFill、原生表格、文本/备注可提取）；模块自测 22/22（16:9 57/57 + 4:3 24/24）；M1/M2/M3/M3.1 回归全绿；13 页导出约 10s，简单背景 deck 0.53MB。
+- **顺带修复**：`hasMermaid` 只检查首个 code 块的 bug（前面有 js 代码块、后面才有 mermaid 时不渲染）；M4 E2E 已加专门用例。
+- **已知限制**：底图不可编辑；字体度量轻微差异；表格边框近似；本机 LibreOffice headless 校验环境挂起（python-pptx OOXML 校验兜底，建议人工用 PowerPoint 抽查）。
+- 版本：v0.2.0（exe 12.41MB）。
+
+### 下一步（M4 剩余 + M5）
 
 1. 新手模板/结构块（封面/目录/章节/数据页/结尾页一键插入）；幻灯片新建/复制/删除按钮。
 2. 大纲拖拽排序；属性面板文本框体验打磨；侧栏拖拽调宽。
 3. 导出后"打开所在文件夹"、PNG 批量、30/100 页性能回归。
 4. 历史快照回滚、空闲自动退出、首启 3 步引导；mermaid 首次加载体验优化（预加载/骨架）。
-5. 打包发布 v0.1：图标/版本信息、便携模式、README/使用文档、Release zip + SHA256。
+5. 打包发布：图标/版本信息、便携模式、README/使用文档、Release zip + SHA256；可编辑 PPTX 用真实 PowerPoint 做一轮人工兼容性验收。
 
 ---
 

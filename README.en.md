@@ -13,6 +13,10 @@
 </p>
 
 <p align="center">
+  <b>New in v0.2.0: editable PPTX export (Beta)</b> — text, lists, code and tables can be edited directly in PowerPoint, while theme backgrounds stay pixel-perfect as a high-res base layer.
+</p>
+
+<p align="center">
   <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest"><img src="https://img.shields.io/github/v/release/mlwei1/MarpWorkbench?style=flat-square&color=22c55e" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/exe-12.4%20MB-4f46e5?style=flat-square" alt="Size" />
@@ -23,11 +27,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">Download the latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.exe">single .exe (12.4 MB)</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.exe">single .exe (12.4 MB)</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **Requirements**: Windows 10/11 (64-bit); export needs the built-in Edge (or Chrome); no Node/Rust required, fully offline. If SmartScreen appears on first run, choose “More info → Run anyway”.
@@ -87,6 +91,14 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
     <td align="center"><sub>Fullscreen presentation: ← → ↑ ↓ / Space / Home / End to navigate, Esc to exit</sub></td>
     <td align="center"><sub>Theme editor: CSS with line numbers, live deck preview, <code>@theme</code> validation</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/images/editable-panel.jpg" alt="Editable PPTX export: fourth format card (Beta)" /></td>
+    <td><img src="docs/images/editable-slide.jpg" alt="Editable PPTX opened in PowerPoint-style renderer" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Editable PPTX (Beta): text/tables are real PowerPoint objects; theme background is a high-res base layer</sub></td>
+    <td align="center"><sub>The exported .pptx keeps the Marp layout when opened in PowerPoint / LibreOffice</sub></td>
+  </tr>
 </table>
 
 <p align="center">
@@ -97,7 +109,7 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
 <p align="center">
   <img src="docs/images/export.jpg" alt="Export panel: PPTX / PDF / HTML" width="92%" />
 </p>
-<p align="center"><sub>Export: PPTX (image-based 2×, 16:9, speaker notes), PDF (vector, selectable Chinese text), single-file HTML</sub></p>
+<p align="center"><sub>Export: PPTX (image-based 2×, 16:9, speaker notes) / PPTX editable (Beta) / PDF (vector, selectable Chinese text) / single-file HTML</sub></p>
 
 ---
 
@@ -108,8 +120,8 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
 Grab the latest from [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest):
 
 ```
-MarpWorkbench-v0.1.0-win-x64.exe     # single-file executable
-MarpWorkbench-v0.1.0-win-x64.zip     # exe + README (zh/en) + LICENSE
+MarpWorkbench-v0.2.0-win-x64.exe     # single-file executable
+MarpWorkbench-v0.2.0-win-x64.zip     # exe + README (zh/en) + LICENSE
 SHA256SUMS.txt                        # checksums
 ```
 
@@ -139,7 +151,7 @@ Double-click `MarpWorkbench.exe`. It starts a local server (127.0.0.1 only, rand
 2. Write Markdown on the left; preview updates on the right
 3. Use the **Inspector** on the right for theme / size / page numbers / header / footer / class / background
 4. Diagrams: toolbar “◈ Diagram”, or type a ` ```mermaid ` block
-5. Top-bar **Export** → **PPTX (image-based) / PDF / HTML**; use **▶ Fullscreen** in the preview toolbar to present
+5. Top-bar **Export** → **PPTX (image-based) / PPTX editable (Beta) / PDF / HTML**; use **▶ Fullscreen** in the preview toolbar to present
 
 ### Keyboard shortcuts
 
@@ -166,7 +178,7 @@ Double-click `MarpWorkbench.exe`. It starts a local server (127.0.0.1 only, rand
 | **Tables** | 12×12 grid picker, inline cell editing, header/first-column bold, alignment, GFM preview |
 | **Diagrams** | ` ```mermaid ` / ` ```mmd ` → SVG (flowchart / sequence / class / state / gantt / pie…), offline, lazy-loaded, graceful error fallback |
 | **Legacy docs** | Remote images shown through a local proxy + one-click “download to local `assets/`” that rewrites the Markdown; exports inline them automatically |
-| **Export** | PPTX (image-based, 2×, 16:9, speaker notes preserved), PDF (vector, 960×540 pt, extractable Chinese text), single-file HTML (plays offline) |
+| **Export** | PPTX (image-based, 2×, 16:9, speaker notes preserved), **PPTX editable (Beta: text, lists, code and tables are real PowerPoint objects; theme background is a high-res base layer; notes preserved)**, PDF (vector, 960×540 pt, extractable Chinese text), single-file HTML (plays offline) |
 | **Presentation** | Fullscreen playback (`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc) |
 | **Lightweight** | 12.4 MB single exe (mermaid + marp-core + 12 themes + frontend embedded), zero runtime dependencies, fully offline, no external requests |
 
@@ -199,7 +211,7 @@ flowchart LR
 ```
 
 - **Why a single Rust binary instead of Electron?** Lightweight is a hard requirement. Rust (axum + tokio + rust-embed) gives a dependency-free binary; rendering happens in the browser (same marp-core as Marp itself); export uses the Chrome/Edge already installed on the machine, so no Chromium is bundled.
-- **Why exports are faithful**: PDF goes through Chromium's print pipeline (`@page 1280×720` → exactly 960×540 pt, selectable text); PPTX uses CDP native screenshots (2×) + pptxgenjs, mirroring `marp-cli --pptx`.
+- **Why exports are faithful**: PDF goes through Chromium's print pipeline (`@page 1280×720` → exactly 960×540 pt, selectable text); image-based PPTX uses CDP native screenshots (2×) + pptxgenjs, mirroring `marp-cli --pptx`; **editable PPTX** uses the same capture pipeline with text made transparent to create the background layer, then reads computed styles from the rendered DOM and emits native text/table objects plus speaker notes via pptxgenjs.
 - **Offline**: mermaid, KaTeX fonts, themes and frontend assets are all embedded; rendering makes zero external requests (remote images either need a one-click localisation or an internet connection).
 
 ---
@@ -227,9 +239,10 @@ pnpm run verify:visual   # core flow: edit / themes / real PPTX export — 13 ch
 pnpm run verify:m2       # inspector / outline+thumbnails / image+table inserters / theme import+editor — 26 checks
 pnpm run verify:m3       # Mermaid / remote-image localisation / in-place image editing / PDF with diagrams — 21 checks
 pnpm run verify:m3fix    # no preview jumping while typing + fullscreen arrow-key navigation — 14 checks
+pnpm run verify:editable # editable PPTX: text/tables/background/notes + python-pptx validation — 23 checks
 ```
 
-Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14), 12/12 themes rendered, zero external requests, zero JavaScript errors.
+Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23); the editable PPTX export is validated with python-pptx (13 slides, 13.333×7.5 in, 13 background blips, 1 native table, extractable Chinese text/notes); zero external requests, zero JavaScript errors.
 
 ---
 
@@ -239,6 +252,7 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14), 12/12 the
 - [x] M2 Usability: 12 themes / theme import & editor / inspector / outline & thumbnails / image & table inserters / format toolbar
 - [x] M3 Enhancements: Mermaid diagrams / legacy remote images / in-place image editing
 - [x] M3.1 Experience: stable preview while typing + fullscreen presentation
+- [x] M4 Editable export: PPTX editable (Beta) — text/lists/code/tables become native PowerPoint objects, backgrounds stay faithful, notes preserved
 - [ ] M4 Release: starter templates / slide add-duplicate-delete / “open containing folder” after export / packaging & GitHub Release
 
 ---
@@ -248,6 +262,7 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14), 12/12 the
 | Document | Content |
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan: product definition, scope, architecture, milestones, risks |
+| [docs/M4_ACCEPTANCE.md](docs/M4_ACCEPTANCE.md) | M4 acceptance: editable PPTX export (measurements + limitations) |
 | [docs/M3_1_ACCEPTANCE.md](docs/M3_1_ACCEPTANCE.md) | M3.1 acceptance: preview stability + fullscreen |
 | [docs/M3_ACCEPTANCE.md](docs/M3_ACCEPTANCE.md) | M3 acceptance: Mermaid / remote images / in-place image editing |
 | [docs/M2_ACCEPTANCE.md](docs/M2_ACCEPTANCE.md) | M2 acceptance: themes / inspector / outline / inserters |
@@ -262,7 +277,7 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14), 12/12 the
 - [Marp](https://marp.app/) / [Marp Core](https://github.com/marp-team/marp-core) / [Marpit](https://marpit.marp.app/) — rendering and theming
 - [Mermaid](https://mermaid.js.org/) — diagrams
 - [CodeMirror](https://codemirror.net/) · [Vue](https://vuejs.org/) · [Vite](https://vite.dev/)
-- [PptxGenJS](https://github.com/gitbrent/PptxGenJS) — image-based PPTX assembly
+- [PptxGenJS](https://github.com/gitbrent/PptxGenJS) — image-based / editable PPTX assembly
 
 ---
 

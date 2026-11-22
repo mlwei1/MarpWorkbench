@@ -13,6 +13,10 @@
 </p>
 
 <p align="center">
+  <b>v0.2.0 新功能：PPTX 可编辑导出（Beta）</b>——文字 / 列表 / 代码 / 表格在 PowerPoint 里可以直接改，主题背景保持高清底图。
+</p>
+
+<p align="center">
   <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest"><img src="https://img.shields.io/github/v/release/mlwei1/MarpWorkbench?style=flat-square&color=22c55e" alt="Latest release" /></a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?style=flat-square" alt="Platform" />
   <img src="https://img.shields.io/badge/exe-12.4%20MB-4f46e5?style=flat-square" alt="Size" />
@@ -23,11 +27,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">下载最新版 / Download latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.exe">单文件 exe（12.4MB）</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.exe">单文件 exe（12.4MB）</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/MarpWorkbench-v0.1.0-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.1.0/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **使用要求**：Windows 10/11（64 位）；导出需要系统自带的 Edge（或 Chrome）；无需 Node/Rust，离线可用。首次运行如遇 SmartScreen，点「更多信息 → 仍要运行」。
@@ -87,6 +91,14 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
     <td align="center"><sub>全屏播放：← → ↑ ↓ / 空格 / Home / End 翻页，Esc 退出</sub></td>
     <td align="center"><sub>主题编辑器：CSS 行号编辑 + 当前 deck 实时预览 + <code>@theme</code> 校验</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/images/editable-panel.jpg" alt="PPTX 可编辑导出：第四种格式（Beta）" /></td>
+    <td><img src="docs/images/editable-slide.jpg" alt="导出的可编辑 PPTX 在 PowerPoint 中渲染" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>PPTX 可编辑（Beta）：文字/表格是真正的 PowerPoint 对象，主题背景为高清底图</sub></td>
+    <td align="center"><sub>导出的 .pptx 在 PowerPoint / LibreOffice 打开后仍保持 Marp 版式</sub></td>
+  </tr>
 </table>
 
 <p align="center">
@@ -97,7 +109,7 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 <p align="center">
   <img src="docs/images/export.jpg" alt="导出面板：PPTX / PDF / HTML" width="92%" />
 </p>
-<p align="center"><sub>导出：PPTX（图片版 2x，16:9，备注写入 notes）/ PDF（矢量、中文可提取）/ HTML 单文件</sub></p>
+<p align="center"><sub>导出：PPTX（图片版 2x，16:9，备注写入 notes）/ PPTX 可编辑（Beta）/ PDF（矢量、中文可提取）/ HTML 单文件</sub></p>
 
 ---
 
@@ -108,8 +120,8 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 到 [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest) 下载 `MarpWorkbench-*.exe`（单文件，约 12.4MB），双击即用：
 
 ```
-MarpWorkbench-v0.1.0-win-x64.exe     # 单文件主程序
-MarpWorkbench-v0.1.0-win-x64.zip     # exe + 中英文 README + LICENSE
+MarpWorkbench-v0.2.0-win-x64.exe     # 单文件主程序
+MarpWorkbench-v0.2.0-win-x64.zip     # exe + 中英文 README + LICENSE
 SHA256SUMS.txt                        # 校验值
 ```
 
@@ -137,7 +149,7 @@ pnpm run build          # 依次构建 mermaid 包 → marp 渲染包 → 前端
 2. 左边写 Markdown，右边实时预览（滚轮/光标联动）
 3. 右侧「属性」点选主题 / 尺寸 / 页码 / 页眉页脚 / class / 背景图
 4. 需要图表：工具栏「◈ 图表」或直接写 ` ```mermaid `
-5. 顶部「导出」→ **PPTX（图片版）/ PDF / HTML**；预览工具栏「▶ 全屏播放」演示
+5. 顶部「导出」→ **PPTX（图片版）/ PPTX 可编辑（Beta）/ PDF / HTML**；预览工具栏「▶ 全屏播放」演示
 
 ### 常用快捷键
 
@@ -164,7 +176,7 @@ pnpm run build          # 依次构建 mermaid 包 → marp 渲染包 → 前端
 | **表格** | 12×12 网格选行列、单元格直接编辑、表头/首列加粗/对齐、GFM 预览 |
 | **图表** | ` ```mermaid ` / ` ```mmd ` 渲染为 SVG（flowchart / sequence / class / state / gantt / pie…），离线、懒加载、错误块降级 |
 | **老文档兼容** | 网络图片经本地代理显示 + 一键下载到 `assets/` 并重写 Markdown；导出自动内联 |
-| **导出** | PPTX（图片版 2x，16:9，备注写入 notes）、PDF（矢量 960×540pt，中文可提取）、HTML 单文件（离线可播） |
+| **导出** | PPTX（图片版 2x，16:9，备注写入 notes）、**PPTX 可编辑（Beta：文字/列表/代码/表格为真正的 PowerPoint 对象，背景为高清底图，备注保留）**、PDF（矢量 960×540pt，中文可提取）、HTML 单文件（离线可播） |
 | **演示** | 全屏播放（`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc） |
 | **轻量** | 单文件 12.4MB（内嵌 mermaid + marp-core + 12 主题 + 前端），零运行时依赖、离线可用、0 外网请求 |
 
@@ -197,7 +209,7 @@ flowchart LR
 ```
 
 - **为什么是 Rust 单文件而不是 Electron**：目标是最轻量。Rust（axum + tokio + rust-embed）单文件零依赖；渲染放在浏览器端（与 Marp 官方同源）；导出借本机已装的 Chrome/Edge 无头打印，不用打包 Chromium。
-- **导出为什么保真**：PDF 走 Chromium 打印管线（`@page 1280×720`，精确 960×540pt、矢量可复制）；PPTX 走 CDP 原生截图 2x + pptxgenjs（与 `marp-cli --pptx` 同思路）。
+- **导出为什么保真**：PDF 走 Chromium 打印管线（`@page 1280×720`，精确 960×540pt、矢量可复制）；PPTX 图片版走 CDP 原生截图 2x + pptxgenjs（与 `marp-cli --pptx` 同思路）；**PPTX 可编辑版**先用同一截图链路生成"文字透明化"的底图，再从渲染 DOM 的计算样式提取文本/表格，用 pptxgenjs 生成可编辑对象与备注。
 - **离线**：mermaid / KaTeX 字体 / 主题 / 前端资源全部内嵌；任何渲染路径 0 外网请求（网络图片需你主动下载或联网预览）。
 
 ---
@@ -225,9 +237,10 @@ pnpm run verify:visual   # 基础流程：编辑 / 主题 / 真实导出 PPTX 13
 pnpm run verify:m2       # 属性面板 / 大纲缩略图 / 图片表格插入器 / 主题导入编辑器 26 项
 pnpm run verify:m3       # Mermaid / 网络图片本地化 / 图片原位编辑 / 含图 PDF 21 项
 pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻页 14 项
+pnpm run verify:editable # PPTX 可编辑：文字/表格/背景/备注 + python-pptx 校验 23 项
 ```
 
-最近一轮结果：**全部通过**（12/12 · 13/13 · 26/26 · 21/21 · 14/14）；主题渲染 12/12；零外网请求、零 JavaScript 错误。
+最近一轮结果：**全部通过**（12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23）；PPTX 可编辑导出由 python-pptx 校验（13 页、13.333×7.5in、13 页背景、1 个原生表格、中文文本/备注可提取）；零外网请求、零 JavaScript 错误。
 
 ---
 
@@ -237,6 +250,7 @@ pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻�
 - [x] M2 易用性：12 套主题 / 主题导入与编辑器 / 属性面板 / 大纲缩略图 / 图片表格插入器 / 格式工具栏
 - [x] M3 增强：Mermaid 图表 / 老 md 网络图片兼容 / 图片原位编辑
 - [x] M3.1 体验：预览滚动稳定 + 全屏播放
+- [x] M4 可编辑导出：PPTX 可编辑（Beta）——文字/列表/代码/表格为 PowerPoint 原生对象，背景保真，备注保留
 - [ ] M4 发布：新手模板 / 幻灯片增删拖拽 / 导出后打开文件夹 / 打包与 GitHub Release
 
 ---
@@ -246,6 +260,7 @@ pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻�
 | 文档 | 内容 |
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | 项目计划：产品定义、范围、架构、里程碑、风险 |
+| [docs/M4_ACCEPTANCE.md](docs/M4_ACCEPTANCE.md) | M4 验收：PPTX 可编辑导出（含实测数据与限制） |
 | [docs/M3_1_ACCEPTANCE.md](docs/M3_1_ACCEPTANCE.md) | M3.1 验收：预览滚动修复 / 全屏播放 |
 | [docs/M3_ACCEPTANCE.md](docs/M3_ACCEPTANCE.md) | M3 验收：Mermaid / 网络图片 / 图片原位编辑 |
 | [docs/M2_ACCEPTANCE.md](docs/M2_ACCEPTANCE.md) | M2 验收：主题 / 属性面板 / 大纲 / 插入器 |
@@ -260,7 +275,7 @@ pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻�
 - [Marp](https://marp.app/) / [Marp Core](https://github.com/marp-team/marp-core) / [Marpit](https://marpit.marp.app/) — 渲染与主题体系
 - [Mermaid](https://mermaid.js.org/) — 图表
 - [CodeMirror](https://codemirror.net/) · [Vue](https://vuejs.org/) · [Vite](https://vite.dev/)
-- [PptxGenJS](https://github.com/gitbrent/PptxGenJS) — PPTX 图片版组装
+- [PptxGenJS](https://github.com/gitbrent/PptxGenJS) — PPTX（图片版 / 可编辑版）组装
 
 ---
 

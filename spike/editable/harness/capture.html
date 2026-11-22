@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>MarpWorkbench editable-pptx background capture harness</title>
+    <style>
+      /* 与服务端 print_page.rs 的截图页一致的 SVG 尺寸规则（模拟 /api/export/capture） */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+      }
+      div.marpit > svg[data-marpit-svg] {
+        display: block;
+        width: 1280px;
+        height: 720px;
+        margin: 0;
+      }
+      #sizes {
+        /* 由 __setContent 按 deck 尺寸覆盖 */
+      }
+      #theme {
+        /* 主题 CSS 由脚本注入 */
+      }
+    </style>
+    <style id="sizes"></style>
+    <style id="theme"></style>
+    <script src="/marp-core.browser.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.__setContent = function (html, css, width, height) {
+        const w = width || 1280
+        const h = height || 720
+        document.getElementById('sizes').textContent =
+          'div.marpit > svg[data-marpit-svg]{display:block;width:' + w + 'px;height:' + h + 'px;margin:0}'
+        document.getElementById('theme').textContent = css || ''
+        document.getElementById('root').innerHTML = html || ''
+        try {
+          window.MarpCoreBundle.MarpCore.browser(document.body)
+        } catch (err) {
+          console.warn('helper apply failed', err)
+        }
+        return {
+          slideCount: document.querySelectorAll('svg[data-marpit-svg]').length,
+          figures: document.querySelectorAll('.marpit figure').length,
+          hasHelper: !!window.MarpCoreBundle,
+        }
+      }
+      window.__settleFrames = function () {
+        return new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 60))),
+        )
+      }
+      window.__ready = true
+    </script>
+  </body>
+</html>

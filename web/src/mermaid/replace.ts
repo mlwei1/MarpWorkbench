@@ -26,9 +26,13 @@ const ERROR_STYLE =
 /** 快速判断：html 里是否有 mermaid/mmd 代码块（无则完全不加载 bundle） */
 export function hasMermaid(html: string): boolean {
   if (!html || html.indexOf('language-') === -1) return false
-  const re = new RegExp('<code\\b[^>]*' + CLASS_ATTR_SOURCE + '[^>]*>', 'i')
-  const match = re.exec(html)
-  return !!match && MERMAID_LANG_RE.test(match[1] ?? match[2] ?? '')
+  // 必须扫描所有 code 块：deck 里可能先出现 js/ts 代码块，再出现 mermaid（M4 发现的原实现只看首个 code 块）
+  const re = new RegExp('<code\\b[^>]*' + CLASS_ATTR_SOURCE + '[^>]*>', 'gi')
+  let match: RegExpExecArray | null
+  while ((match = re.exec(html))) {
+    if (MERMAID_LANG_RE.test(match[1] ?? match[2] ?? '')) return true
+  }
+  return false
 }
 
 const NAMED_ENTITIES: Record<string, string> = {

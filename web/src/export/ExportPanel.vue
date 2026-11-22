@@ -36,8 +36,46 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { width: 1280, height: 720 })
 const emit = defineEmits<{ close: []; done: [fileName: string] }>()
 
-type Format = 'pptx' | 'pdf' | 'html'
+type Format = 'pptx' | 'pptx-editable' | 'pdf' | 'html'
 type Stage = 'idle' | 'preparing' | 'capturing' | 'assembling' | 'downloading' | 'done' | 'error'
+
+/**
+ * M4：PPTX 可编辑（Beta）模块（owner: editable-ppt-eng，写 `./editable/**`）。
+ * 用 import.meta.glob 懒加载：模块文件不存在时返回 {} → 隐藏该格式卡（构建不会被阻塞），
+ * 模块出现后重新构建即自动启用。
+ */
+const editableModules = import.meta.glob('./editable/index.ts') as Record<
+  string,
+  () => Promise<EditableModuleAPI | { default: EditableModuleAPI }>
+>
+const editableLoader = Object.values(editableModules)[0] || null
+const editableAvailable = !!editableLoader
+
+interface EditableModuleAPI {
+  measureDeckForEditablePptx: (
+    html: string,
+    css: string,
+    opts: { width: number; height: number; comments?: string[]; title?: string }
+  ) => Promise<{
+    layouts: any[]
+    backgroundHtml: string
+    backgroundCss: string
+    pageCount: number
+    width: number
+    height: number
+    stats?: { textBlocks?: number; tables?: number; runs?: number }
+  }>
+  assembleEditablePptx: (
+    deck: any,
+    backgrounds: string[],
+    opts: {
+      title?: string
+      pptxgenjs: any
+      comments?: string[]
+      onProgress?: (pct: number, label: string) => void
+    }
+  ) => Promise<{ blob: Blob; stats?: { slides?: number; textBlocks?: number; tables?: number; bytes?: number } }>
+}
 
 const format = ref<Format>('pptx')
 const stage = ref<Stage>('idle')
@@ -79,8 +117,15 @@ const slideCount = computed(() => {
 
 const fileNamePreview = computed(() => {
   const stem = sanitizeFileName(props.title || '演示文稿')
-  const ext = format.value === 'pptx' ? 'pptx' : format.value === 'pdf' ? 'pdf' : 'html'
+  if (format.value === 'pptx-editable') return `${stem}-可编辑.pptx`
+  const ext = format.value === 'pdf' ? 'pdf' : format.value === 'html' ? 'html' : 'pptx'
   return `${stem}.${ext}`
+})
+
+/** 按钮/结果文案用的格式名（pptx-editable 不能 toUpperCase 成 PPTX-EDITABLE） */
+const formatLabel = computed(() => {
+  if (format.value === 'pptx-editable') return 'PPTX 可编辑'
+  return format.value.toUpperCase()
 })
 
 const captureFormat = computed<'png' | 'jpeg'>(() => (slideCount.value <= 10 ? 'png' : 'jpeg'))
@@ -256,7 +301,8 @@ async function startExport() {
   resetState()
   stage.value = 'preparing'
   try {
-    if (format.value === 'pdf') await exportPdf()
+    if (format.value === 'pptx-editable') await exportEditablePptx()
+    else if (format.value === 'pdf') await exportPdf()
     else if (format.value === 'html') await exportHtml()
     else await exportPptx()
     stage.value = 'done'
@@ -373,8 +419,141 @@ async function exportPptx() {
   emit('done', fileName)
 }
 
-/** 用 pptxgenjs 组装图片版 PPTX（与 marp-cli --pptx 同思路） */
-async function assemblePptx(images: { dataUrl: string }[], comments: string[]): Promise<any> {
+/**
+ * M4：PPTX 可编辑（Beta）。
+ * 原理：背景层 = 页面高清截图（文字透明 / 表格隐藏），前景层 = 从 DOM 计算样式提取的
+ * 文本/表格对象（真正的 PowerPoint 文本/表格），备注写 notes。
+ * 实现模块：`./editable/index`（owner: editable-ppt-eng），本函数只做编排/资源/下载/进度。
+ */
+async function exportEditablePptx() {
+  const payload = await prepareAssets(await renderPayload())
+  const count = slideCount.value || 0
+  if (!count) throw new Error('没有可导出的幻灯片：请用 --- 分页')
+
+  progress.value = 6
+  progressText.value = '正在加载可编辑导出模块…'
+  const mod = await loadEditableModule()
+
+  progress.value = 12
+  progressText.value = '正在测量版式（提取文本/表格对象）…'
+  const measured = await mod.measureDeckForEditablePptx(payload.html, payload.css, {
+    width: payload.width,
+    height: payload.height,
+    comments: payload.comments,
+    title: payload.title
+  })
+  const pageCount = Number(measured?.pageCount) || count
+  if (!measured?.backgroundHtml || !measured?.backgroundCss) {
+    throw new Error('可编辑导出：未能生成背景页（measure 结果缺少 backgroundHtml/backgroundCss）；可改用「PPTX 图片版」')
+  }
+  // 背景尺寸用 measure 实测的 deck 尺寸（4:3=960×720 / 16:9=1280×720），避免 4:3 被按 1280 裁剪
+  const bgWidth = Number(measured?.width) > 0 ? Number(measured.width) : payload.width
+  const bgHeight = Number(measured?.height) > 0 ? Number(measured.height) : payload.height
+  if (pageCount !== count) {
+    // 不阻断，但记录（布局数量以 measure 为准）
+    console.warn(`[export] 可编辑 PPTX 页数不一致：render=${count} measure=${pageCount}`)
+  }
+
+  // 1) 背景截图（文字透明/表格隐藏；复用 /api/export/capture 的 CDP 原生截图）
+  stage.value = 'capturing'
+  const bgFormat: 'png' | 'jpeg' = pageCount <= 10 ? 'png' : 'jpeg'
+  progress.value = 20
+  progressText.value = `正在生成高清背景（共 ${pageCount} 页，${bgFormat === 'png' ? 'PNG 无损' : 'JPEG 高质量'} 2x）…`
+  const capture = await apiJson<{
+    images: { index: number; url: string; w: number; h: number }[]
+    ms: number
+    fallback: boolean
+    mode: string
+    reason?: string
+  }>('/api/export/capture', {
+    html: measured.backgroundHtml,
+    css: measured.backgroundCss,
+    width: bgWidth,
+    height: bgHeight,
+    scale: 2,
+    slideCount: pageCount,
+    format: bgFormat
+  })
+  if (capture.fallback) {
+    throw new Error(`背景生成失败：原生截图不可用（${capture.reason || 'CDP 不可用'}）；可改用「PPTX 图片版」`)
+  }
+  const sortedImages = [...(capture.images || [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+  if (sortedImages.length !== pageCount) {
+    throw new Error(
+      `背景数量不匹配（期望 ${pageCount} 张，实际 ${sortedImages.length} 张）；可改用「PPTX 图片版」`
+    )
+  }
+  progress.value = 34
+  progressText.value = `正在读取 ${sortedImages.length} 张背景…`
+  const backgrounds: string[] = []
+  for (let i = 0; i < sortedImages.length; i++) {
+    const blob = await fetchBlob(sortedImages[i].url)
+    backgrounds.push(await blobToDataUrl(blob))
+    progress.value = 34 + Math.round(((i + 1) / sortedImages.length) * 14)
+  }
+
+  // 2) 组装：背景 dataURL + 文本/表格 shape + notes
+  stage.value = 'assembling'
+  progress.value = 50
+  progressText.value = '正在组装可编辑 PPTX（文本/表格对象 + 背景底图）…'
+  const pptxgenModule: any = await import('pptxgenjs')
+  const PptxGenJS: any = pptxgenModule?.default || pptxgenModule?.PptxGenJS || pptxgenModule
+  const assembled = await mod.assembleEditablePptx(measured, backgrounds, {
+    title: payload.title,
+    pptxgenjs: PptxGenJS,
+    comments: payload.comments,
+    onProgress: (pct: number, label: string) => {
+      const safe = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0
+      progress.value = Math.max(progress.value, 50 + Math.round(safe * 0.42))
+      if (label) progressText.value = String(label)
+    }
+  })
+  const blob: Blob | undefined = assembled?.blob
+  if (!blob || typeof (blob as Blob).size !== 'number' || !(blob as Blob).size) {
+    throw new Error('可编辑导出：组装结果缺少有效 PPTX 数据；可改用「PPTX 图片版」')
+  }
+
+  // 3) 下载
+  stage.value = 'downloading'
+  progress.value = 94
+  progressText.value = '正在下载可编辑 PPTX…'
+  const fileName = fileNamePreview.value
+  saveBlob(blob as Blob, fileName)
+  progress.value = 100
+  progressText.value = '完成'
+  const stats: any = assembled?.stats || {}
+  const textBlocks = Number(stats.textBlocks ?? measured?.stats?.textBlocks ?? 0)
+  const tables = Number(stats.tables ?? measured?.stats?.tables ?? 0)
+  resultText.value = `可编辑 PPTX 已下载：${fileName}（${pageCount} 页 · 文本框 ${textBlocks} · 表格 ${tables} · 可编辑；背景/图片/Mermaid/页码为底图，Beta）`
+  if (lastAssetWarning) resultText.value += `\n注意：${lastAssetWarning}`
+  emit('done', fileName)
+}
+
+/** 懒加载 `./editable/index`（缺失/接口不全/加载失败都转成可读错误） */
+async function loadEditableModule(): Promise<EditableModuleAPI> {
+  if (!editableLoader) {
+    throw new Error('「PPTX 可编辑（Beta）」模块未就绪（请更新 MarpWorkbench）；可先用「PPTX」图片版导出')
+  }
+  let raw: any
+  try {
+    raw = await editableLoader()
+  } catch (err: any) {
+    throw new Error(`可编辑导出模块加载失败：${String(err?.message || err)}；可改用「PPTX」图片版`)
+  }
+  const api: any = raw?.measureDeckForEditablePptx ? raw : raw?.default
+  if (
+    !api ||
+    typeof api.measureDeckForEditablePptx !== 'function' ||
+    typeof api.assembleEditablePptx !== 'function'
+  ) {
+    throw new Error(
+      '可编辑导出模块接口不完整（缺少 measureDeckForEditablePptx / assembleEditablePptx）；可改用「PPTX」图片版'
+    )
+  }
+  return api as EditableModuleAPI
+}
+
+/** 用 pptxgenjs 组装图片版 PPTX（与 marp-cli --pptx 同思路） */async function assemblePptx(images: { dataUrl: string }[], comments: string[]): Promise<any> {
   const mod: any = await import('pptxgenjs')
   const PptxGenJS: any = mod?.default || mod?.PptxGenJS || mod
   const pptx = new PptxGenJS()
@@ -487,6 +666,19 @@ function close() {
             <em>默认</em>
           </button>
           <button
+            v-if="editableAvailable"
+            type="button"
+            class="fmt"
+            :class="{ active: format === 'pptx-editable' }"
+            :disabled="busy"
+            :title="'Beta：文字/表格可在 PowerPoint 编辑；背景、图片、Mermaid、页码为高清底图'"
+            @click="format = 'pptx-editable'"
+          >
+            <strong>PPTX 可编辑</strong>
+            <span>文字/表格可在 PowerPoint 编辑；背景、图片、Mermaid、页码为高清底图</span>
+            <i class="beta">Beta</i>
+          </button>
+          <button
             type="button"
             class="fmt"
             :class="{ active: format === 'pdf' }"
@@ -509,10 +701,18 @@ function close() {
         </div>
 
         <p class="mwb-export-hint">
-          PPTX 为图片版（不可逐字编辑）以保证 100% 版式保真；演讲者备注会写入 notes。
-          <template v-if="format === 'pptx'">
+          <template v-if="format === 'pptx-editable'">
+            可编辑版为 <strong>Beta</strong>：文字、列表、代码、表格是真正的 PowerPoint 对象，可选中修改；
+            背景、装饰图、图片、Mermaid、页码是高清底图（不可编辑）。字体在目标机缺失时 PowerPoint 会自动替换。
+          </template>
+          <template v-else-if="format === 'pptx'">
+            PPTX 为图片版（不可逐字编辑）以保证 100% 版式保真；演讲者备注会写入 notes。
             本次截图格式：{{ captureFormat === 'png' ? 'PNG 无损（≤10 页）' : 'JPEG 高质量（>10 页，速度更快）' }}。
           </template>
+          <template v-else-if="format === 'pdf'">
+            PDF 为矢量文本（可搜索复制），页面精确 1280×720；主题/渐变/中文字体保持与预览一致。
+          </template>
+          <template v-else>HTML 为离线单文件（双击即播，←/→ 翻页），可再打印为 PDF。</template>
         </p>
 
         <div v-if="busy" class="mwb-export-progress">
@@ -530,14 +730,17 @@ function close() {
         <div v-if="stage === 'error'" class="mwb-export-result err">
           <p class="msg">{{ errorText }}</p>
           <p v-if="errorDetail" class="detail">{{ errorDetail }}</p>
-          <p class="sub">可重试；若持续失败，请检查本机 Chrome/Edge 是否可用（设置页可查看浏览器探测结果）。</p>
+          <p v-if="format === 'pptx-editable'" class="sub">
+            可编辑版为 Beta：若持续失败，请在上方切换为「PPTX」（图片版）导出——版式 100% 保真但文字不可编辑。
+          </p>
+          <p v-else class="sub">可重试；若持续失败，请检查本机 Chrome/Edge 是否可用（设置页可查看浏览器探测结果）。</p>
         </div>
       </div>
 
       <footer class="mwb-export-foot">
         <button type="button" class="ghost" :disabled="busy" @click="close">关闭</button>
         <button type="button" class="primary" :disabled="busy || mockMode || !slideCount" @click="startExport">
-          {{ busy ? '导出中…' : `导出 ${format.toUpperCase()}` }}
+          {{ busy ? '导出中…' : `导出 ${formatLabel}` }}
         </button>
       </footer>
   </div>
@@ -614,6 +817,21 @@ function close() {
   background: #e9f1ff;
   border-radius: 999px;
   padding: 1px 8px;
+}
+/* M4：可编辑 PPTX 的 Beta 徽标（黄色，区别于默认徽标） */
+.fmt i.beta {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 0 8px;
+  line-height: 18px;
 }
 .fmt:hover:not(:disabled) {
   border-color: #b9c8e0;

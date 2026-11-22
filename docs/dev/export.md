@@ -568,3 +568,118 @@ pnpm --dir web build
 3. 远程图片只有在「下载到本地」后才会改写 markdown；未本地化时预览靠代理、导出靠代理内联，断网场景导出会缺图（有提示）。
 4. 服务端代理的安全策略（私网/重定向上限/15MB/10s/缓存）见 `docs/dev/server.md` 的 M3 章节；测试本机地址需 `MWB_PROXY_ALLOW_PRIVATE=1`。
 
+---
+
+## 15. M4 可编辑 PPTX（Beta；面板集成 owner: export-eng，测量/组装模块 owner: editable-ppt-eng）
+
+> 契约：`docs/UI_CONTRACT_M4_PPTX_EDITABLE.md` §2.2（面板）/ §3（验收）/ §5（限制）。
+> 用户需求原文："添加ppt可编辑导出功能"。
+> 写范围：本文件 + `web/src/export/ExportPanel.vue`；模块在 `web/src/export/editable/**`（勿改）。
+
+### 15.1 体验与定位
+
+导出面板格式从 3 个变 4 个（模块就绪时）：
+
+| 格式卡 | 说明 | 可编辑性 |
+|---|---|---|
+| **PPTX**（默认） | 图片版：逐页 2x 截图当整页背景 + notes | 整页不可编辑（版式 100% 保真） |
+| **PPTX 可编辑（Beta）** | 背景=高清底图；文字/列表/代码/表格=真正的 PowerPoint 对象 | 文字/表格可改；背景/图片/Mermaid/页码为底图 |
+| PDF | 矢量文本、可搜索复制 | 文本可复制不可编辑版式 |
+| HTML | 离线单文件、键盘翻页 | 源码可改 |
+
+- 卡片带黄色 **Beta** 徽标；默认仍选图片版；文案明确「背景、图片、Mermaid、页码为高清底图」；
+- 文件名：`<deck 名>-可编辑.pptx`（与图片版区分）；
+- 失败时面板提示「可在上方切换为 PPTX（图片版）」；导出完成文案含「N 页 · 文本框 M · 表格 K」。
+
+### 15.2 原理（两层：底图 + 可编辑对象）
+
+```
+render()（含 Mermaid / 资产 dataURL）
+   ↓
+measureDeckForEditablePptx(html, css, {width,height,comments,title})   [editable 模块]
+   ├─ 隐藏 iframe 注入已内联的 html/css，等字体+2×rAF
+   ├─ 遍历 svg[data-marpit-svg]/section：提取 EditableTextBlock / EditableTableBlock
+   │   （位置 px、runs 粗/斜/删除线/颜色/字体/字号、内联代码底色、bullet、表格行列/填充/边框）
+   └─ 产出 backgroundHtml/backgroundCss（文字 color:transparent!important、table visibility:hidden、
+       Mermaid/图片/背景/页码保留）+ layouts + stats
+   ↓
+POST /api/export/capture { html: backgroundHtml, css: backgroundCss, scale:2,
+                          format: pageCount≤10 ? png : jpeg(q90) }      [服务端 CDP 原生截图]
+   ↓ images[]（2560×1440）→ fetch 成 dataURL 数组（按 index 排序，数量必须 = pageCount）
+   ↓
+assembleEditablePptx(deck, backgrounds, {title, pptxgenjs, comments, onProgress})  [editable 模块]
+   ├─ defineLayout({ width: width/96, height: height/96 })（16:9 → 13.333×7.5in）
+   ├─ 每页：slide.background = { data: backgrounds[i] } + addText/addTable + addNotes(comments[i])
+   └─ 返回 { blob, stats:{slides,textBlocks,tables,bytes} }
+   ↓
+面板 saveBlob(blob, '<title>-可编辑.pptx') → 浏览器下载
+```
+
+### 15.3 面板集成要点（`ExportPanel.vue`）
+
+- `type Format` 增加 `'pptx-editable'`；`startExport()` 分支 `exportEditablePptx()`；
+- **模块检测**：`import.meta.glob('./editable/index.ts')` 懒加载。editable 模块文件不存在时 `{}` → 卡片隐藏（构建不阻塞）；模块落地后重新 `pnpm --dir web build` 自动出现；
+- 进度分 6 段：加载模块(6%) → 测量版式(12%) → 生成背景(20%) → 读取背景(34%) → 组装(50%+onProgress) → 下载(94%)；
+- 背景格式自适应沿用现有策略：**页数 ≤10 用 PNG 无损，>10 用 JPEG q90**（2x）；数量/顺序不符直接可读报错（不静默）；
+- 复用现有 `prepareAssets()`：先内联 deck 资产（assets/x.png → dataURL）再经代理内联网络图片——保证 measure/背景 html 里没有需要 token 的相对/远程资源；
+- token/错误处理沿用 `apiJson`/`fetchBlob`；`EXPORT_FAILED` 统一可读文案；mock 模式整体禁用（与现有格式一致）；
+- 结果文案：`可编辑 PPTX 已下载：<文件名>（N 页 · 文本框 M · 表格 K · 可编辑；背景/图片/Mermaid/页码为底图，Beta）`；
+- 不改变图片版/PDF/HTML 的既有流程与文案（各自分支独立）。
+
+### 15.4 能力边界（UI 与文档一致，契约 §5）
+
+1. **背景层**：主题背景、渐变、装饰、图片、Mermaid 图、页码都在底图里，**不可编辑**；
+2. **文字层**：标题/段落/列表/代码/表格单元格可选中修改；保留粗体/斜体/删除线/颜色/内联代码底色；
+3. **不保留**：阴影、渐变文字、`background-clip:text`、复杂 transform/动画（接受近似差异）；
+4. **字体**：目标机缺失字体会被 PowerPoint 自动替换，DOM 字体度量差异可能造成轻微换行/偏移；
+5. **表格**：重建为 PPT 表格，边框/内边距为近似；
+6. **体积**：每页一张高清底图，文件比图片版更大（13 页实测见 §15.6）；导出耗时更长（截图 + 测量 + 组装）。
+
+### 15.5 测试 / 复现
+
+```powershell
+# 前端构建（editable 模块存在时，导出面板出现第 4 张格式卡；模块懒加载 chunk）
+pnpm --dir web build
+
+# 真实 exe 端到端（13 页样例：中文标题/列表/代码/表格/背景图/Mermaid/备注 → 面板导出 → 解包校验）
+#   需 exe 含最新 web/dist；脚本自建临时数据目录并在结束时清理，不调用 soffice
+node spike/export/scripts/verify-editable-export.mjs
+#   产物：spike/export/out/m4-editable.pptx、m4-editable-report.json
+#   截图：m4-editable-panel.png（面板 4 卡 + Beta）、m4-editable-done.png（完成统计/文件名）
+
+# 面板快速检查（可选，Vite dev + mock，无需后端）：editable 卡存在=4 张 / 缺失=3 张
+$env:MWB_DEV_PORT='5194'; pnpm --dir web dev    # 另开终端
+node spike/export/scripts/check-export-panel.mjs --expect-editable=1
+
+# Lead 的端到端验收（真实 exe + Chrome 下载 + python-pptx/LibreOffice 校验）
+pnpm run verify:editable
+```
+
+### 15.6 实测结果（2026-11-22，真实 release exe）
+
+**`spike/export/scripts/verify-editable-export.mjs`：21/21 通过**
+
+| 项 | 实测 |
+|---|---|
+| deck | 13 页 16:9（business-blue）：中文标题/列表/代码块/4 行表格/`![bg left:40%]` 背景图/Mermaid/每页备注 |
+| UI | 导出面板 4 张卡：`PPTX / PPTX 可编辑 / PDF / HTML`，可编辑卡带 **Beta** 徽标与边界说明 |
+| 导出结果 | `M4 可编辑 PPTX 验收-可编辑.pptx`：**504,225 B**（13>10 → JPEG q90 背景，约 0.48MB） |
+| 耗时 | **9,998 ms**（measure 隐藏 iframe + 13 页 2x 背景截图 + 组装；本机 Chrome 155） |
+| 解包校验 | 13 页；`sldSz cx=12192000 cy=6858000`（**13.333×7.5in**）；**13 页均有背景 `blipFill`**；1 个 `<a:tbl>` 表格对象；中文文本全部可提取（标题/列表/代码/表格表头）；**13 个 notesSlides**（`note-13` 可读）；50 处 run 带字体/字号样式 |
+| 面板文案 | 「可编辑 PPTX 已下载：…（13 页 · 文本框 28 · 表格 1 · 可编辑；背景/图片/Mermaid/页码为底图，Beta）」 |
+| 其它 | 浏览器下载文件名含「-可编辑.pptx」；无页面 JS 错误；脚本结束无残留 exe/soffice |
+
+**其它验证**
+- `pnpm --dir web build` 通过：ExportPanel chunk 16.96KB；editable 模块为懒加载 chunk（index-*.js 23.47KB），**模块文件缺失时卡片自动隐藏**（当时面板 3 卡、`check-export-panel.mjs` 4/4 通过）；
+- exe 重建后 13,017,088 B（仍 ≤20MB 单文件约束）；
+- 可编辑模块自身验证（python-pptx 57/57、4:3 24/24、报告）见 `docs/dev/editable-pptx.md` §7 与 `spike/editable/out/report.md`（owner: editable-ppt-eng）。
+
+### 15.7 已知限制 / 未完成
+
+1. **Beta**：边界如 §15.4，UI 已标注「背景/图片/Mermaid/页码不可编辑」；
+2. 若运行中的 exe 未包含 editable 模块（旧版本），面板**不显示**该格式卡——需要更新到含模块的构建；
+3. 依赖测得的 DOM 几何；不同主题字体/自动缩放（auto-scaling 由 marp browser helper 生效）可能让个别文本块位置有 1–2px 级偏差；
+4. 表格样式为近似重建，复杂合并单元格/嵌套表格不保证；
+5. 导出失败（测量/截图/组装任一阶段）会给出阶段可读错误并建议回退「PPTX 图片版」。
+
+
