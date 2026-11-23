@@ -10,6 +10,8 @@
 
 <p align="center">
   <a href="README.en.md">English</a> · <b>简体中文</b>
+  &nbsp;·&nbsp; GitHub 主仓库 <a href="https://github.com/mlwei1/MarpWorkbench">mlwei1/MarpWorkbench</a>
+  · Gitee 镜像 <a href="https://gitee.com/mlwei1/MarpWorkbench">mlwei1/MarpWorkbench</a>
 </p>
 
 <p align="center">

@@ -10,6 +10,8 @@
 
 <p align="center">
   <b>English</b> · <a href="README.md">简体中文</a>
+  &nbsp;·&nbsp; GitHub <a href="https://github.com/mlwei1/MarpWorkbench">mlwei1/MarpWorkbench</a>
+  · Gitee mirror <a href="https://gitee.com/mlwei1/MarpWorkbench">mlwei1/MarpWorkbench</a>
 </p>
 
 <p align="center">
