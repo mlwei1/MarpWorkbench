@@ -60,6 +60,22 @@ const pageCount = ref(1)
 const preview = ref<RenderResult | null>(null)
 const previewError = ref('')
 const exportOpen = ref(false)
+// ---------------- M5.1 CLI：autoExport（?autoExport= 由 main.ts 写入 sessionStorage） ----------------
+const AUTO_EXPORT_KEY = 'mwb.autoExport'
+const AUTO_EXPORT_FORMATS = ['pptx', 'pptx-editable', 'pdf', 'html'] as const
+type AutoExportFormat = (typeof AUTO_EXPORT_FORMATS)[number]
+
+function readAutoExportFromSession(): AutoExportFormat | null {
+  try {
+    const raw = (sessionStorage.getItem(AUTO_EXPORT_KEY) || '').trim().toLowerCase()
+    return (AUTO_EXPORT_FORMATS as readonly string[]).includes(raw) ? (raw as AutoExportFormat) : null
+  } catch {
+    return null
+  }
+}
+
+/** 本次页面加载要自动导出的格式（消费一次；不传则 null，手动流程完全不变） */
+const autoExportFormat = ref<AutoExportFormat | null>(readAutoExportFromSession())
 const galleryOpen = ref(false)
 const themeEditorName = ref<string | null>(null)
 const themeOverride = ref<string | null>(null)
@@ -297,6 +313,27 @@ function openExport(): void {
     toast('导出面板组件尚未就绪（export-eng 开发中），稍后自动可用', 'info')
     return
   }
+  // 手动打开：清除自动导出意图，避免用户点开时又自动触发一次
+  autoExportFormat.value = null
+  exportOpen.value = true
+}
+
+/**
+ * M5.1 CLI：消费 sessionStorage 中的 autoExport（只生效一次）。
+ * 由 CLI 用 `?autoExport=<format>` 打开页面；deck 加载完成后自动打开导出面板，
+ * ExportPanel 会在页数就绪后自动触发一次导出（下载由浏览器保存，CLI 轮询下载目录）。
+ */
+function consumeAutoExport(): void {
+  if (!autoExportFormat.value) return
+  try {
+    sessionStorage.removeItem(AUTO_EXPORT_KEY)
+  } catch {
+    /* ignore */
+  }
+  if (!canExport.value) {
+    autoExportFormat.value = null
+    return
+  }
   exportOpen.value = true
 }
 
@@ -523,6 +560,8 @@ async function loadDeck(): Promise<void> {
     dirty.value = false
     conflict.value = false
     scheduleRender(0)
+    // M5.1 CLI：deck 就绪后自动打开导出面板（ExportPanel 等页数就绪后自动导出）
+    consumeAutoExport()
   } catch (err) {
     loadError.value = readableError(err)
   } finally {
@@ -795,6 +834,7 @@ watch(deckId, () => {
           :title="title"
           :markdown="content"
           :render="renderForExport"
+          :auto-export-format="autoExportFormat || undefined"
           @close="exportOpen = false"
           @done="(fileName: string) => toast(`导出完成：${fileName}`, 'success')"
         />

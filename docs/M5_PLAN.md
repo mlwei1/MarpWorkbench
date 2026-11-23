@@ -1,13 +1,14 @@
 # M5 计划：Mermaid 尺寸/示例 + 让 AI 直接产出 PPT
 
-> 状态：**M5.0 已完成（2026-11-23 验收通过）；M5.1 AI 集成待确认** ｜ 用户需求（原话）：
+> 状态：**M5.0 已完成（Mermaid 尺寸/示例）；M5.1 CLI 已实现（v0.4.0）**；HTTP API / MCP 待确认 ｜ 用户需求（原话）：
 > 1. "添加一个 mermaid 添加图大小设置的选项，现在的图太小了，如果难度太大的话就渲染的大一点。"
 > 2. "添加 mermaid 图时，各个类型的图加示例，方便用户编辑。"
 > 3. "方便 ai 直接写这个 md，然后给这个项目做 ppt，先做一个计划，我的想法是 1 给 ai 这个软件的接口，2 或者输出一个说明文档，让 ai 直接根据文档输出，3. 也可以两者并行。"
 >
-> 本文件 = **M5.0（已完成，Mermaid 尺寸/示例）+ M5.1（AI 集成，待你确认后实施）** 的整体计划。
+> 本文件 = **M5.0（已完成）+ M5.1（文档轨 + CLI 已完成；HTTP/MCP 待实施）** 的整体计划。
 > M5.0 实现契约：`docs/UI_CONTRACT_M5_MERMAID.md`；验收报告：`docs/M5_0_ACCEPTANCE.md`。
-> AI 文档轨已交付：`docs/AI_WRITING_GUIDE.md`、`docs/AI_PROMPT.md`（现在即可复制 Prompt 给任意 AI 使用）。
+> M5.1 CLI 契约：`docs/CLI_CONTRACT.md`；使用说明：`docs/CLI.md`；验收：`docs/M5_1_ACCEPTANCE.md`。
+> AI 文档轨已交付：`docs/AI_WRITING_GUIDE.md`、`docs/AI_PROMPT.md`（现在即可复制 Prompt 给任意 AI 使用，再用 CLI 一条命令出 PPT）。
 
 ---
 

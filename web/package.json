@@ -1,6 +1,6 @@
 {
   "name": "marp-workbench-web",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "MarpWorkbench 前端（Vue 3 + Vite + CodeMirror 6 + marp-core 浏览器渲染）",

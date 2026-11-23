@@ -253,3 +253,72 @@ assets 上传下载/主题列表+导入+读取+更新+非法校验+删除/无 to
   - **结果：debug 与 release 均 22/22 通过**；M1 回归 `server/scripts/smoke.ps1` release **42/42 通过**。
 - 构建：`cargo build --release --offline`（当前网络下需 `--offline`；依赖未变，Cargo.lock 未改动）。
 - 构建网络备注：`spike/packaging/cargo-rsproxy.toml` 为 crates.io 直连被阻断时的备用源配置（仅归档参考，正常环境不需要）。
+
+---
+
+## 10. M5.1 CLI：`--export`（Markdown → PPTX / PDF / HTML）
+
+> 契约：`docs/CLI_CONTRACT.md`；实现：`server/src/cli.rs` + `server/src/main.rs`（最小改动）。
+> 目标：AI 读 `docs/AI_WRITING_GUIDE.md` 生成 md → 一条命令直接出 PPTX，无需点 UI。
+
+### 10.1 用法
+
+```powershell
+MarpWorkbench.exe --export <deck.md> [--format pptx|pptx-editable|pdf|html] [--out <file>] [--theme <name>] [--timeout 180] [--keep-deck]
+MarpWorkbench.exe --help        # 中文用法
+MarpWorkbench.exe --version     # 版本号
+```
+
+- `--format` 默认 `pptx`（图片版）；`pptx-editable` 为文字/表格可编辑版；`pdf`；`html`。
+- `--out` 省略时输出到输入文件同目录、同名（`pptx-editable` 加 `-可编辑` 后缀）。
+- `--theme` 仅覆盖**导入副本**的 front-matter `theme:`（无 front-matter 时补 `marp: true` 头），**不修改源文件**。
+- `--timeout` 默认 180s（10–1800）；`--keep-deck` 保留导入的工作区 deck（默认删除）。
+- 成功：stdout 最后一行 JSON `{ok:true,format,file,bytes,pages,ms,deckId,keptDeck}`，退出码 0。
+- 失败：stderr 中文原因 + stdout（最后一行）`{"ok":false,"error":"…"}`，退出码 1。
+- CLI 全程无浏览器窗口（headless Chrome）；结束后杀掉 Chrome 进程树、清理临时 profile/下载目录、关闭本地服务。
+
+### 10.2 实现结构（不新增 Cargo 依赖）
+
+```
+main.rs: 解析参数 → CLI 模式(不打开浏览器/跳过单实例锁/不写 instance.json/不打印握手行)
+  → 正常初始化数据目录+监听+token+AppState+router
+  → spawn axum server（graceful shutdown 由 shutdown_tx 控制）
+  → spawn_blocking 调 cli::run_export()
+cli.rs:
+  1. 读 md（UTF-8、≤32MB）→ prepare_content(--theme) → 输出路径
+  2. 极简本机 HTTP 客户端（std::net::TcpStream 手写 HTTP/1.1，支持 Content-Length/chunked、X-MWB-Token）
+     POST /api/decks → PUT /api/decks/{id}（复用现有 API，不新增接口）
+  3. 临时目录 %TEMP%\MarpWorkbench\cli-<pid>-<rand>\{profile,downloads}
+     写 Default/Preferences: download.default_directory + prompt_for_download=false + savefile.default_directory
+  4. browser::detect() 选 Chrome（其次 Edge），启动：
+     --headless=new --disable-gpu --no-first-run --no-default-browser-check --disable-extensions
+     --disable-background-networking --disable-features=DownloadBubble,DownloadBubbleV2
+     --user-data-dir=<profile> --window-size=1680,1050
+     http://127.0.0.1:<port>/edit/<id>?token=<token>&autoExport=<format>
+  5. 轮询 downloads（200ms，文件大小连续两次不变才取）直到出现目标扩展名；Chrome 提前退出/超时会带 Chrome 日志尾
+  6. taskkill /PID <chrome.pid> /T /F → 移动/重命名为 --out → 统计字节/PDF 页数
+  7. cleanup：删临时目录、默认 DELETE deck（--keep-deck 保留）
+```
+
+- **前端配合**：`?autoExport=<format>` 由前端 `web/src/main.ts`/`EditView.vue`/`ExportPanel.vue` 消费，自动打开导出面板并在页数就绪后触发一次导出，下载走现有 `saveBlob`。CLI 不重写任何导出逻辑。
+- CLI 模式**跳过单实例锁**，可在 GUI 正开着时同时运行（同一数据目录下会短暂创建/删除 deck；默认 DELETE 走回收站 `.trash`）。
+- 默认使用真实数据目录（如 `文档\MarpWorkbench`，可用 `MWB_DATA_DIR` 隔离）；`--keep-deck` 时 JSON 含 `deckId` 可定位。
+- 运行环境：Windows 10 1809+/Win11 + Chrome/Edge（无浏览器时给出可读错误）；构建产物为 GUI 子系统，脚本中请用 `spawn`/重定向捕获 stdout（`spawnSync` 会等待并拿到输出）。
+
+### 10.3 实测（2026-11-23，release exe = 12.49MB / 13,092,352 B，`scripts/fixtures/cli-demo.md` 10 页）
+
+| 命令 | 结果 | 耗时（CLI 总时长含 Chrome 启动/页面加载/导出/下载） |
+|---|---|---|
+| `--help` | ✅ 输出含 `--export`/`--format`，退出 0 | <1s |
+| `--version` | ✅ `MarpWorkbench 0.3.1`（**0.4.0 版本号提升由 Lead 发布步骤负责**，验收脚本若断言 0.4.0 需先升版本） | <1s |
+| `--format pdf --out out\demo.pdf` | ✅ 10 页、234,495 B、`%PDF` 头 | ~36s |
+| `--format html --theme tech-dark --out out\demo.html` | ✅ 90KB、含 `data-marpit`、主题覆盖生效 | ~16s |
+| `--format pptx`（省略 `--format/--out` → 默认路径） | ✅ 10 页、2,114,450 B、13.333×7.5in、内含 10 页背景图（ppt/media） | ~35s |
+| `--format pptx-editable` | ✅ 10 页、1,691,800 B、13.333×7.5in；python-pptx：44 个文本 shape、1 个表格、备注页；背景图为底图 | ~35s |
+| `--keep-deck` | ✅ JSON `keptDeck:true`，deck 目录保留在数据目录 | ~22s |
+| 不存在的输入文件 | ✅ 退出 1，stderr 中文 + stdout JSON `ok:false` | 立即 |
+| 非法 `--format` / 非法参数 | ✅ 退出 1，中文提示（如 `未知导出格式: gif（可选 …）`） | 立即 |
+| 残留检查 | ✅ 结束后无 headless Chrome、无 CLI 临时目录、无残留服务进程 | — |
+| Lead 验收脚本 `node scripts/verify-cli.mjs` | **19/20 ✅**；唯一失败是 `--version` 断言 `0.4.0`（当前工程版本仍 0.3.1 —— **版本号提升属于发布步骤（Lead）**，`main.rs` 用 `env!("CARGO_PKG_VERSION")`，升 `server/Cargo.toml` + 根 `package.json` 版本后即通过） | ~3min |
+
+> 注：实测环境 `web/dist` 需包含 autoExport（task-22 已交付）；若用旧构建产物，CLI 会超时并提示“未在下载目录发现文件”。

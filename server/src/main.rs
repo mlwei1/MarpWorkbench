@@ -2,6 +2,7 @@
 
 mod assets;
 mod browser;
+mod cli;
 mod error;
 mod routes;
 mod state;
@@ -44,7 +45,22 @@ async fn main() {
         emit_stdout(&format!("MarpWorkbench {}\n", env!("CARGO_PKG_VERSION")));
         std::process::exit(0);
     }
-    let no_open = args.iter().any(|a| a == "--no-open") || std::env::var_os("MWB_NO_OPEN").is_some();
+    if cli::wants_help(&args) {
+        cli::print_help();
+        std::process::exit(0);
+    }
+    // M5.1 CLI：`--export` 模式（复用同一进程内的本地 HTTP 服务 + headless Chrome 自动导出）
+    let cli_export = match cli::parse_export_args(&args) {
+        Ok(value) => value,
+        Err(message) => {
+            cli::print_error(&message);
+            cli::print_error_json(&message);
+            std::process::exit(1);
+        }
+    };
+    let cli_mode = cli_export.is_some();
+    let no_open =
+        cli_mode || args.iter().any(|a| a == "--no-open") || std::env::var_os("MWB_NO_OPEN").is_some();
 
     let data_dir = util::resolve_data_dir();
     if let Err(err) = util::ensure_dirs(&data_dir).await {
@@ -52,26 +68,30 @@ async fn main() {
         std::process::exit(1);
     }
 
-    // ---- 单实例（按数据目录派生锁端口，多数据目录可并行测试）----
+    // ---- 单实例（按数据目录派生锁端口，多数据目录可并行测试；CLI 模式不与 GUI 抢锁）----
     let lock_port = instance_lock_port(&data_dir);
-    let instance_lock = match std::net::TcpListener::bind(("127.0.0.1", lock_port)) {
-        Ok(listener) => Some(listener),
-        Err(_) => {
-            // 已有实例在跑：等它把 instance.json 落盘（最多 3s），然后打开已有页面并退出
-            let mut existing_url = None;
-            for _ in 0..30 {
-                if let Some(url) = util::probe_existing_instance(&data_dir) {
-                    existing_url = Some(url);
-                    break;
+    let instance_lock = if cli_mode {
+        None
+    } else {
+        match std::net::TcpListener::bind(("127.0.0.1", lock_port)) {
+            Ok(listener) => Some(listener),
+            Err(_) => {
+                // 已有实例在跑：等它把 instance.json 落盘（最多 3s），然后打开已有页面并退出
+                let mut existing_url = None;
+                for _ in 0..30 {
+                    if let Some(url) = util::probe_existing_instance(&data_dir) {
+                        existing_url = Some(url);
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                 }
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
-            if let Some(url) = existing_url {
-                if !no_open {
-                    util::open_browser(&url);
+                if let Some(url) = existing_url {
+                    if !no_open {
+                        util::open_browser(&url);
+                    }
                 }
+                std::process::exit(0);
             }
-            std::process::exit(0);
         }
     };
 
@@ -122,29 +142,34 @@ async fn main() {
         browser: browser::detect(),
     });
 
-    // instance.json：供二次启动探测 / 冒烟测试读取 port+token
-    let instance = serde_json::json!({
-        "pid": app_state.pid,
-        "port": port,
-        "token": token,
-        "startedAt": app_state.started_at,
-        "url": app_state.url_with_token(),
-    });
-    if let Ok(bytes) = serde_json::to_vec_pretty(&instance) {
-        let _ = util::atomic_write(&app_state.instance_path(), &bytes).await;
+    // instance.json：供二次启动探测 / 冒烟测试读取 port+token（CLI 模式不写，避免覆盖 GUI 实例信息）
+    if !cli_mode {
+        let instance = serde_json::json!({
+            "pid": app_state.pid,
+            "port": port,
+            "token": token,
+            "startedAt": app_state.started_at,
+            "url": app_state.url_with_token(),
+        });
+        if let Ok(bytes) = serde_json::to_vec_pretty(&instance) {
+            let _ = util::atomic_write(&app_state.instance_path(), &bytes).await;
+        }
     }
 
     util::log_line(
         &data_dir,
         &format!(
-            "MarpWorkbench listening on {}{}",
+            "MarpWorkbench listening on {}{}{}",
             app_state.url(),
-            if no_open { " (no-open)" } else { "" }
+            if no_open { " (no-open)" } else { "" },
+            if cli_mode { " (cli-export)" } else { "" }
         ),
     );
-    // 契约 §0.2：向 stdout 打印两行，供 scripts/smoke.mjs / CI 读取（无 stdout 句柄时静默忽略）
-    emit_stdout(&format!("MWB_LISTEN_URL=http://127.0.0.1:{port}\n"));
-    emit_stdout(&format!("MWB_TOKEN={token}\n"));
+    // 契约 §0.2：向 stdout 打印两行，供 scripts/smoke.mjs / CI 读取（CLI 模式 stdout 只输出结果 JSON）
+    if !cli_mode {
+        emit_stdout(&format!("MWB_LISTEN_URL=http://127.0.0.1:{port}\n"));
+        emit_stdout(&format!("MWB_TOKEN={token}\n"));
+    }
     if !no_open {
         util::open_browser(&app_state.url_with_token());
     }
@@ -155,9 +180,26 @@ async fn main() {
     let server = axum::serve(listener, router).with_graceful_shutdown(async move {
         let _ = shutdown_rx.changed().await;
     });
-    if let Err(err) = server.await {
-        util::log_line(&data_dir, &format!("HTTP 服务异常退出: {err}"));
+    let log_dir = data_dir.clone();
+    let server_handle = tokio::spawn(async move {
+        if let Err(err) = server.await {
+            util::log_line(&log_dir, &format!("HTTP 服务异常退出: {err}"));
+        }
+    });
+
+    // ---- M5.1 CLI 导出：服务已起来，在 blocking 线程跑导出，完成后优雅停机 ----
+    if let Some(export_args) = cli_export {
+        let state_for_cli = app_state.clone();
+        let result =
+            tokio::task::spawn_blocking(move || cli::run_export(&state_for_cli, export_args))
+                .await
+                .unwrap_or_else(|err| Err(format!("CLI 任务异常: {err}")));
+        let _ = shutdown_tx.send(true);
+        let _ = server_handle.await;
+        std::process::exit(cli::finish(result));
     }
+
+    let _ = server_handle.await;
 
     // ---- 退出清理 ----
     let _ = tokio::fs::remove_file(app_state.instance_path()).await;

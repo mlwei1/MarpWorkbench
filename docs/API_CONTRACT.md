@@ -57,7 +57,7 @@
 
 | 方法 | 路径 | 请求 | 响应 |
 |---|---|---|---|
-| GET | `/api/health` | — | `{ok:true, app:"MarpWorkbench", version:"0.3.1", pid, port, workspaceRoot, startedAt}` |
+| GET | `/api/health` | — | `{ok:true, app:"MarpWorkbench", version:"0.4.0", pid, port, workspaceRoot, startedAt}` |
 | POST | `/api/shutdown` | — | `{ok:true}`；服务保存全部后退出（进程退出 0） |
 | GET | `/api/browser` | — | `{chrome?:string, edge?:string, usable:boolean, preferred:"chrome"\|"edge"\|null}`（M1 供导出探测/设置页展示） |
 

@@ -1,7 +1,8 @@
-# MarpWorkbench（Marp 工作台）—— 项目计划 v1.7
+# MarpWorkbench（Marp 工作台）—— 项目计划 v1.8
 
-> 状态：**M5.0 完成（2026-11-23 验收通过）**——Mermaid 尺寸选项 + 10 类示例库 + 图表原位编辑；AI 写作规范/Prompt 已产出，M5.1 AI 接口待确认 ｜ 版本：v1.7 ｜ 更新：2026-11-23
-> v1.7 变更：M5.0 Mermaid 体验批次完成并实测验收（报告见 `docs/M5_0_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M5_MERMAID.md`）；AI 集成计划见 `docs/M5_PLAN.md`。
+> 状态：**M5.1 CLI 完成（2026-11-23 验收通过）**——`--export md → pptx/pptx-editable/pdf/html`；Mermaid 19 类示例；AI 文档轨可用 ｜ 版本：v1.8 ｜ 更新：2026-11-23
+> v1.8 变更：M5.1 CLI + 前端 autoExport 完成并实测验收（报告见 `docs/M5_1_ACCEPTANCE.md`，契约见 `docs/CLI_CONTRACT.md`）；M5.0 示例扩展到 19 类。
+> v1.7 变更：M5.0 Mermaid 体验批次完成并实测验收（报告见 `docs/M5_0_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M5_MERMAID.md`）。
 > v1.6 变更：M4 可编辑 PPTX 批次完成并实测验收（报告见 `docs/M4_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M4_PPTX_EDITABLE.md`）。
 > v1.5 变更：M3.1 体验修复完成并实测验收（报告见 `docs/M3_1_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3_FIX.md`）。
 > v1.4 变更：M3 批次完成并实测验收（报告见 `docs/M3_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3.md`）。
@@ -606,9 +607,16 @@ marp-workbench/
 - **验收**：M5 E2E **17/17**（10 类预览、尺寸 xl/70% 生效、实际宽度 1120/1280、原位替换、默认 auto）；mermaid 专项 unit 23/23、render 28/28、size 18/18、print 23/23；全量回归 M1 13/13、M2 26/26、M3 21/21、M3.1 14/14、M4 23/23、冒烟 12/12；exe 12.43MB。
 - **已知**：xl + 大标题同页在部分主题会溢出（建议用「大」或去标题）；首次预览需懒加载 mermaid bundle（3–5s）。
 
-### 下一步（M4 剩余 + M5.1）
+### M5.1 CLI 已完成（2026-11-23，详见 `docs/M5_1_ACCEPTANCE.md`）
 
-1. **M5.1 AI 集成**（待确认方案，详见 `docs/M5_PLAN.md`）：文档轨已就绪；接着做本地 HTTP API + CLI 一键导出 → MCP Server；应用内 AI 入口/校验器。
+- **CLI**：`MarpWorkbench.exe --export <md> [--format pptx|pptx-editable|pdf|html] [--out] [--theme] [--timeout] [--keep-deck]`；不打开界面，内部起本地服务 + headless Chrome（profile Preferences 预设下载目录）完成导出，stdout JSON，退出码 0/1；Chrome/临时目录/服务自动清理。
+- **前端 autoExport**：`?autoExport=<format>` 自动打开导出面板并只触发一次现有导出；普通 GUI 行为不变。
+- **验收**：`node scripts/verify-cli.mjs` **20/20**；可编辑 PPTX 10 页/1.65MB、图片版 2.11MB、PDF 10 页、HTML 10 张；全量回归 M1–M5 全绿；exe 12.49MB。
+- **AI 工作流**：`AI_WRITING_GUIDE.md` → AI 生成 md → CLI 一条命令 → `.pptx`；文档见 `docs/CLI.md`。
+
+### 下一步（M4 剩余 + M5.1 剩余）
+
+1. **M5.1 剩余**（待确认，详见 `docs/M5_PLAN.md`）：本地 HTTP API → MCP Server；应用内 AI 入口/校验器。
 2. 新手模板/结构块（封面/目录/章节/数据页/结尾页一键插入）；幻灯片新建/复制/删除按钮。
 3. 大纲拖拽排序；属性面板文本框体验打磨；侧栏拖拽调宽。
 4. 导出后"打开所在文件夹"、PNG 批量、30/100 页性能回归。

@@ -234,3 +234,16 @@ graph LR
 - [ ] Mermaid 代码块围栏闭合；类型在支持列表内；图不过大
 - [ ] 备注用 `<!-- ... -->`，页面指令用 `<!-- _class: ... -->`
 - [ ] 文件末尾没有多余解释文字
+
+## 11. 生成后直接用 CLI 做 PPT
+
+保存为 `deck.md` 后（MarpWorkbench v0.4.0+）：
+
+```powershell
+MarpWorkbench.exe --export .\deck.md --format pptx-editable --out .\deck.pptx
+```
+
+- `--format`：`pptx`（图片版，默认）/ `pptx-editable`（文字表格可编辑）/ `pdf` / `html`
+- 成功时 stdout 最后一行是 JSON；失败退出码 1 并输出中文错误
+- 详细参数、AI 工作流与实测见 `docs/CLI.md`
+

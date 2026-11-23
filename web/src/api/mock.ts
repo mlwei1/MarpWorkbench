@@ -195,7 +195,7 @@ export async function mockRequest<T>(path: string, init: RequestInit = {}): Prom
     const health: HealthInfo = {
       ok: true,
       app: 'MarpWorkbench (mock)',
-      version: '0.3.0-mock',
+      version: '0.4.0-mock',
       pid: 0,
       port: 0,
       workspaceRoot: state.settings.workspaceRoot,

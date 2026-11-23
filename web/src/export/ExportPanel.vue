@@ -17,7 +17,7 @@
  * 截图格式自适应（Lead 2026-10-20 建议）：页数 ≤10 用 PNG（无损）；>10 用 JPEG q90
  * （实测 2x PNG 渐变主题约 2.1s/页，30 页会超 30s 预算；JPEG 约 0.42s/页且目检无可见糊化）。
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getToken, isMockMode } from '../api/client'
 import { hasDeckAssetRefs, inlineDeckAssetUrls } from '../insert/upload'
 import { hasRemoteImageRefs, inlineRemoteImageDataUrls } from '../insert/remoteImages'
@@ -32,6 +32,8 @@ interface Props {
   width?: number
   height?: number
   theme?: string
+  /** M5.1 CLI：由 `?autoExport=` 传入时，页数就绪后自动触发一次导出（不依赖用户点击） */
+  autoExportFormat?: Format
 }
 const props = withDefaults(defineProps<Props>(), { width: 1280, height: 720 })
 const emit = defineEmits<{ close: []; done: [fileName: string] }>()
@@ -130,11 +132,26 @@ const formatLabel = computed(() => {
 
 const captureFormat = computed<'png' | 'jpeg'>(() => (slideCount.value <= 10 ? 'png' : 'jpeg'))
 
+// M5.1 CLI：autoExport 自动导出（只触发一次；普通手动导出不受影响）
+const autoTriggered = ref(false)
+let autoExportTimer: number | undefined
+let stopAutoWatch: (() => void) | null = null
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  if (props.autoExportFormat) {
+    format.value = props.autoExportFormat
+    // slideCount 变化时尝试触发；另有 150ms 轮询兜底（防止 render 异步/首帧竞态）
+    stopAutoWatch = watch(slideCount, () => maybeAutoExport(), { immediate: true })
+    autoExportTimer = window.setInterval(maybeAutoExport, 150)
+  }
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  window.clearInterval(autoExportTimer)
+  autoExportTimer = undefined
+  stopAutoWatch?.()
+  stopAutoWatch = null
 })
 
 function onKeydown(e: KeyboardEvent) {
@@ -317,6 +334,21 @@ async function startExport() {
       errorText.value = msg
     }
   }
+}
+
+/**
+ * M5.1 CLI：页数就绪后只触发一次自动导出。
+ * - 由 autoExportFormat 驱动（CLI 打开 `?autoExport=` 时 → 面板自动导出 → saveBlob 下载）
+ * - 防重复/竞态：autoTriggered + watch/immediate + 150ms 轮询兜底；普通手动导出不会调用本函数
+ */
+function maybeAutoExport(): void {
+  if (!props.autoExportFormat || autoTriggered.value || mockMode) return
+  if (slideCount.value <= 0) return
+  autoTriggered.value = true
+  window.clearInterval(autoExportTimer)
+  autoExportTimer = undefined
+  format.value = props.autoExportFormat
+  void startExport()
 }
 
 async function exportPdf() {

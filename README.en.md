@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <b>New in v0.3.1: Mermaid template gallery expanded to 19 (quadrant, bar/line, sankey, radar, treemap, block, Git, C4, kanban)</b>; plus an <a href="docs/AI_WRITING_GUIDE.md">AI writing guide</a> and <a href="docs/AI_PROMPT.md">prompt templates</a> so ChatGPT / Claude / Cursor can produce import-ready Marp Markdown.
+  <b>New in v0.4.0: CLI one-command export</b> — `MarpWorkbench.exe --export deck.md --format pptx-editable`; plus the 19-template Mermaid gallery and size options.
 </p>
 
 <p align="center">
@@ -29,11 +29,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">Download the latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.exe">single .exe (12.4 MB)</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/MarpWorkbench-v0.4.0-win-x64.exe">single .exe (12.5 MB)</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/MarpWorkbench-v0.4.0-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **Requirements**: Windows 10/11 (64-bit); export needs the built-in Edge (or Chrome); no Node/Rust required, fully offline. If SmartScreen appears on first run, choose “More info → Run anyway”.
@@ -130,8 +130,8 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
 Grab the latest from [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest):
 
 ```
-MarpWorkbench-v0.3.1-win-x64.exe     # single-file executable
-MarpWorkbench-v0.3.1-win-x64.zip     # exe + README (zh/en) + LICENSE
+MarpWorkbench-v0.4.0-win-x64.exe     # single-file executable
+MarpWorkbench-v0.4.0-win-x64.zip     # exe + README (zh/en) + LICENSE
 SHA256SUMS.txt                        # checksums
 ```
 
@@ -192,6 +192,23 @@ If the AI can read files, also give it `AI_WRITING_GUIDE.md` to maximise syntax 
 
 ---
 
+## ⌨️ CLI: Markdown → PPTX in one command (v0.4.0)
+
+```powershell
+MarpWorkbench.exe --export .\deck.md --format pptx-editable --out .\deck.pptx
+MarpWorkbench.exe --export .\deck.md --format pptx --out .\deck-image.pptx
+MarpWorkbench.exe --export .\deck.md --format pdf  --out .\deck.pdf
+MarpWorkbench.exe --export .\deck.md --format html --out .\deck.html
+```
+
+- No GUI interaction; uses the installed Chrome/Edge headless and exits automatically
+- Default `--format pptx` (image-based, most faithful); `pptx-editable` keeps text/tables editable
+- Prints a JSON result line on stdout; exit code 1 + readable error on failure
+- AI workflow: `AI_WRITING_GUIDE.md` → AI writes md → run the command → `.pptx`
+- Full reference: [docs/CLI.md](docs/CLI.md)
+
+---
+
 ## 🧩 Features
 
 | Area | What you get |
@@ -206,7 +223,8 @@ If the AI can read files, also give it `AI_WRITING_GUIDE.md` to maximise syntax 
 | **Legacy docs** | Remote images shown through a local proxy + one-click “download to local `assets/`” that rewrites the Markdown; exports inline them automatically |
 | **Export** | PPTX (image-based, 2×, 16:9, speaker notes preserved), **PPTX editable (Beta: text, lists, code and tables are real PowerPoint objects; theme background is a high-res base layer; notes preserved)**, PDF (vector, 960×540 pt, extractable Chinese text), single-file HTML (plays offline) |
 | **Presentation** | Fullscreen playback (`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc) |
-| **Lightweight** | 12.4 MB single exe (mermaid + marp-core + 12 themes + frontend embedded), zero runtime dependencies, fully offline, no external requests |
+| **Lightweight** | 12.5 MB single exe (mermaid + marp-core + 12 themes + frontend embedded), zero runtime dependencies, fully offline, no external requests |
+| **CLI** | `MarpWorkbench.exe --export deck.md --format pptx-editable` — headless Chrome export to PPTX (image/editable) / PDF / HTML; JSON on stdout, ideal for AI agents/scripts |
 
 ---
 
@@ -267,9 +285,10 @@ pnpm run verify:m3       # Mermaid / remote-image localisation / in-place image 
 pnpm run verify:m3fix    # no preview jumping while typing + fullscreen arrow-key navigation — 14 checks
 pnpm run verify:editable # editable PPTX: text/tables/background/notes + python-pptx validation — 23 checks
 pnpm run verify:mermaid-ui # Mermaid 19 templates / sizes / insert / in-place edit — 17 checks
+pnpm run verify:cli       # CLI: md→editable/image PPTX, PDF, HTML, error paths — 20 checks
 ```
 
-Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17); the editable PPTX export is validated with python-pptx (13 slides, 13.333×7.5 in, 13 background blips, 1 native table, extractable Chinese text/notes); Mermaid now renders 1120/1280 (88%) of the content width by default and all 10 templates render; zero external requests, zero JavaScript errors.
+Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17 · 20/20); the editable PPTX export is validated with python-pptx (13 slides, 13.333×7.5 in, 13 background blips, 1 native table, extractable Chinese text/notes); Mermaid now renders 1120/1280 (88%) of the content width by default and all 10 templates render; zero external requests, zero JavaScript errors.
 
 ---
 
@@ -281,7 +300,8 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 ·
 - [x] M3.1 Experience: stable preview while typing + fullscreen presentation
 - [x] M4 Editable export: PPTX editable (Beta) — text/lists/code/tables become native PowerPoint objects, backgrounds stay faithful, notes preserved
 - [x] M5.0 Mermaid experience: size options (`%% mwb-size`) + 10-template library + in-place chart editing; AI writing guide & prompts
-- [ ] M5.1 AI integration: local HTTP/CLI → MCP Server (plan: [docs/M5_PLAN.md](docs/M5_PLAN.md))
+- [x] M5.1 CLI: `--export md → pptx/pptx-editable/pdf/html` (one command)
+- [ ] M5.1 HTTP API / MCP Server (plan: [docs/M5_PLAN.md](docs/M5_PLAN.md))
 - [ ] M4 Release: starter templates / slide add-duplicate-delete / “open containing folder” after export / packaging & GitHub Release
 
 ---
@@ -291,6 +311,8 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 ·
 | Document | Content |
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan: product definition, scope, architecture, milestones, risks |
+| [docs/CLI.md](docs/CLI.md) | CLI reference: options, AI workflow, benchmarks, FAQ |
+| [docs/M5_1_ACCEPTANCE.md](docs/M5_1_ACCEPTANCE.md) | M5.1 acceptance: CLI 20/20 + frontend auto-export |
 | [docs/M5_0_ACCEPTANCE.md](docs/M5_0_ACCEPTANCE.md) | M5.0 acceptance: Mermaid sizes / templates / in-place editing |
 | [docs/M4_ACCEPTANCE.md](docs/M4_ACCEPTANCE.md) | M4 acceptance: editable PPTX export (measurements + limitations) |
 | [docs/AI_WRITING_GUIDE.md](docs/AI_WRITING_GUIDE.md) · [docs/AI_PROMPT.md](docs/AI_PROMPT.md) | AI writing spec / copy-paste prompts |

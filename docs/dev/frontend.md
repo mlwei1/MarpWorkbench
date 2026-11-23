@@ -402,7 +402,7 @@ doRender()（async，token 防竞态）
 
 | 文件 | 说明 |
 | --- | --- |
-| `web/src/insert/MermaidInsertDialog.vue`（新建） | 三栏图表对话框：19 类示例卡 / 可编辑代码 / 实时预览 + 尺寸；插入与编辑两用 |
+| `web/src/insert/MermaidInsertDialog.vue`（新建） | 三栏图表对话框：10 类示例卡 / 可编辑代码 / 实时预览 + 尺寸；插入与编辑两用 |
 | `web/src/insert/mermaidBlock.ts`（新建） | `findMermaidBlockAtLine(md, line, tolerance=1)` 精确定位 ```mermaid / ```mmd 块（跳未闭合/其它语言 fence）；尺寸指令解析/序列化/片段构建（`normalizeMermaidSize`/`parseMermaidSizeDirective`/`applyMermaidSizeDirective`/`buildMermaidSnippet`） |
 | `web/src/editor/types.ts` | `EditorApi` 增加 `replaceRange(from, to, text, cursorLine?)` |
 | `web/src/editor/CodeMirrorEditor.vue` | `replaceRange` 用一次 `view.dispatch({changes, selection})` 实现（保留撤销历史），可选定位到目标行 |
@@ -412,7 +412,7 @@ doRender()（async，token 防竞态）
 
 ### 13.2 对话框要点
 
-- **19 类中文示例**（全部真实可渲染，含缩进/箭头）：流程图 `graph LR`、时序图 `sequenceDiagram`、类图 `classDiagram`（中文用 `note`）、状态图 `stateDiagram-v2`（`state "待处理" as Pending`）、实体关系图 `erDiagram`（中文用属性注释/关系标签）、甘特图 `gantt`、饼图 `pie`、思维导图 `mindmap`、时间线 `timeline`、用户旅程 `journey`。
+- **10 类中文示例**（全部真实可渲染，含缩进/箭头）：流程图 `graph LR`、时序图 `sequenceDiagram`、类图 `classDiagram`（中文用 `note`）、状态图 `stateDiagram-v2`（`state "待处理" as Pending`）、实体关系图 `erDiagram`（中文用属性注释/关系标签）、甘特图 `gantt`、饼图 `pie`、思维导图 `mindmap`、时间线 `timeline`、用户旅程 `journey`。
 - 点击类型卡覆盖代码（不弹确认）；中间 textarea 可直接改；`400ms` 防抖调 mermaid 模块 `renderMermaidPreview(code)` 实时预览，自增 token 防竞态；错误显示中文「图表渲染失败 + 详情」。
 - 尺寸下拉 `getMermaidSizeOptions()`：自动（推荐）/小/中/大/超大/自定义百分比（1–100）；选非 auto 时把 `%% mwb-size: <value>` 写入代码首行（mermaid 当注释忽略）。**每次重写前先删除代码前 5 行内所有旧指令，保证永不重复**；来自外部的 `px` 自定义指令在用户未改尺寸前原样保留（不静默改成 %）。
 - 编辑模式：标题「编辑 Mermaid 图表」、按钮「保存修改」，预填源码 + 尺寸（`parseMermaidSizeDirective`），保存由 `replaceRange` 原位替换（块数不变）。
@@ -439,3 +439,48 @@ doRender()（async，token 防竞态）
 - 对话框自定义尺寸只提供百分比（契约 §2.3）；手写 `NNNpx` 指令可正常渲染，编辑时不会被悄悄改写。
 - 插入的 `%% mwb-size` 指令行会保留在 Markdown 中（mermaid 注释），便于下次编辑。
 - 编辑判定 ±1 行（光标在 fence 上下相邻行也可进入编辑）；未闭合 fence / 其它语言 fence 不命中，按新建处理。
+
+---
+
+## 14. M5.1 CLI 配合：`autoExport` 自动导出（frontend-core）
+
+> 契约：[`docs/CLI_CONTRACT.md`](../CLI_CONTRACT.md) §2.2/§3 ｜ 用户需求：AI 生成 md 后用 `MarpWorkbench.exe --export` 一条命令出 PPT。前端只负责「打开页面即自动导出」，CLI 用 Chrome 临时 profile 的下载目录接收文件（server/CLI 由 desktop-packaging 实现）。
+
+### 14.1 改动文件
+
+| 文件 | 改动 |
+| --- | --- |
+| `web/src/main.ts` | 在 `initToken()` 清 query 前读取 `?autoExport=`（仅 `pptx|pptx-editable|pdf|html`）→ `sessionStorage['mwb.autoExport']`；**router.isReady() 之后**统一清理地址栏 `token`/`autoExport` 参数（vue-router 初始化会用创建时捕获的 location 再 replace 一次，提前清理会被写回；这也顺带修复了 token 残留在地址栏的旧问题） |
+| `web/src/views/EditView.vue` | setup 时读取校验 sessionStorage → `autoExportFormat`；`loadDeck()` 成功后（deck/内容就绪）消费 sessionStorage 并 `exportOpen = true`；手动 `openExport()` 会清除自动意图；把 `:auto-export-format` 传给 ExportPanel |
+| `web/src/export/ExportPanel.vue` | 新增 prop `autoExportFormat?: Format`；`onMounted` 设置 `format`，用 `watch(slideCount, …, {immediate:true})` + 150ms 轮询兜底，**只触发一次** `startExport()`（`autoTriggered` 防重复/竞态）；下载仍走现有 `saveBlob`（`a[download]`），无新接口 |
+| `docs/dev/frontend.md` | 本节 |
+
+### 14.2 行为
+
+- CLI 启动 headless Chrome 打开 `/edit/<id>?token=…&autoExport=<format>`：
+  1. `main.ts` 保存格式到 sessionStorage 并清掉 URL 参数；
+  2. EditView deck 加载完成 → 自动打开导出面板（格式预选、`autoExportFormat` 传入）；
+  3. ExportPanel 等幻灯片页数 > 0 → 自动执行一次导出 → 浏览器按 CLI profile Preferences 的下载目录保存文件；
+  4. CLI 轮询下载目录取文件、杀 Chrome、清理。
+- 普通访问（无 `autoExport`）：行为完全不变（不自动打开面板、不自动导出、手动导出默认 PPTX 图片版）。
+- 非法格式（如 `autoExport=docx`）被忽略；mock 模式下不自动导出。
+
+### 14.3 自测（真实 release exe + Chrome，`web/scripts/verify-auto-export.mjs`）
+
+| 场景 | 结果 |
+| --- | --- |
+| 打开 `?autoExport=pptx-editable` | ✅ 自动打开导出面板、格式=PPTX 可编辑、sessionStorage 已消费清除 |
+| 无点击自动下载 | ✅ `AutoExport-Test-可编辑.pptx`（166345 B，3 页：文本框 7 / 表格 1，Beta） |
+| 自动导出完成结果展示 | ✅「可编辑 PPTX 已下载：…」 |
+| 普通访问回归 | ✅ 不自动打开/不自动下载；手动点导出 → 默认 PPTX 图片版 → `AutoExport-Test.pptx`（218468 B） |
+| 非法值 `autoExport=docx` | ✅ 忽略（不保存、不打开面板） |
+| JS 错误 | ✅ 0 |
+
+截图/报告：`%TEMP%\mwb-autoexport-*\`（01-auto-export.png / 02-manual-export.png / report.json）。
+
+### 14.4 已知边界
+
+- 自动导出依赖浏览器下载（`a[download]`），下载目录由 CLI 的 Chrome profile `Preferences` 预设；普通浏览器访问带 `autoExport` 只会弹下载。
+- 自动模式失败时面板显示错误、CLI 侧表现为等待超时（由 CLI 契约处理）；前端不额外上报。
+- 自动导出只触发一次；地址栏参数与 sessionStorage 都已清理，刷新不会重复导出。
+- `pptx-editable` 需要 `web/src/export/editable/**` 模块存在（当前已具备），否则 CLI 会超时失败。

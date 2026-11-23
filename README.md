@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <b>v0.3.1 更新：Mermaid 示例扩展到 19 类（新增象限图/柱状折线/桑基/雷达/树图/块图/Git/C4/看板）</b>；同时提供 <a href="docs/AI_WRITING_GUIDE.md">AI 写作规范</a> 与 <a href="docs/AI_PROMPT.md">Prompt 模板</a>，让 ChatGPT / Claude / Cursor 直接产出可导入的 Marp Markdown。
+  <b>v0.4.0 新功能：CLI 一条命令出 PPT</b>——`MarpWorkbench.exe --export deck.md --format pptx-editable`；同时包含 Mermaid 19 类示例库与图表尺寸选项。
 </p>
 
 <p align="center">
@@ -29,11 +29,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">下载最新版 / Download latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.exe">单文件 exe（12.4MB）</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/MarpWorkbench-v0.4.0-win-x64.exe">单文件 exe（12.5MB）</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/MarpWorkbench-v0.4.0-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.4.0/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **使用要求**：Windows 10/11（64 位）；导出需要系统自带的 Edge（或 Chrome）；无需 Node/Rust，离线可用。首次运行如遇 SmartScreen，点「更多信息 → 仍要运行」。
@@ -130,8 +130,8 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 到 [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest) 下载 `MarpWorkbench-*.exe`（单文件，约 12.4MB），双击即用：
 
 ```
-MarpWorkbench-v0.3.1-win-x64.exe     # 单文件主程序
-MarpWorkbench-v0.3.1-win-x64.zip     # exe + 中英文 README + LICENSE
+MarpWorkbench-v0.4.0-win-x64.exe     # 单文件主程序
+MarpWorkbench-v0.4.0-win-x64.zip     # exe + 中英文 README + LICENSE
 SHA256SUMS.txt                        # 校验值
 ```
 
@@ -190,6 +190,26 @@ AI（ChatGPT / Claude / DeepSeek / Cursor…）现在就能直接产出本应用
 
 ---
 
+## ⌨️ CLI：md 直接变 PPT（v0.4.0）
+
+```powershell
+# 可编辑 PPTX（文字/表格可改，背景高清底图）
+MarpWorkbench.exe --export .\deck.md --format pptx-editable --out .\deck.pptx
+
+# 图片版 PPTX / PDF / HTML
+MarpWorkbench.exe --export .\deck.md --format pptx --out .\deck-image.pptx
+MarpWorkbench.exe --export .\deck.md --format pdf  --out .\deck.pdf
+MarpWorkbench.exe --export .\deck.md --format html --out .\deck.html
+```
+
+- 无需打开界面；自动使用本机 Chrome/Edge headless 导出，完成后自动关闭
+- 默认 `--format pptx`（图片版，版式最稳）；`pptx-editable` 文字/表格可编辑
+- 成功时 stdout 最后一行输出 JSON（含 file/bytes/ms），失败退出码 1 + 中文错误
+- AI 工作流：`AI_WRITING_GUIDE.md` → AI 生成 md → 上述命令 → `.pptx`
+- 完整参数/实测/FAQ：[docs/CLI.md](docs/CLI.md)
+
+---
+
 ## 🧩 功能一览
 
 | 模块 | 能力 |
@@ -204,7 +224,8 @@ AI（ChatGPT / Claude / DeepSeek / Cursor…）现在就能直接产出本应用
 | **老文档兼容** | 网络图片经本地代理显示 + 一键下载到 `assets/` 并重写 Markdown；导出自动内联 |
 | **导出** | PPTX（图片版 2x，16:9，备注写入 notes）、**PPTX 可编辑（Beta：文字/列表/代码/表格为真正的 PowerPoint 对象，背景为高清底图，备注保留）**、PDF（矢量 960×540pt，中文可提取）、HTML 单文件（离线可播） |
 | **演示** | 全屏播放（`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc） |
-| **轻量** | 单文件 12.4MB（内嵌 mermaid + marp-core + 12 主题 + 前端），零运行时依赖、离线可用、0 外网请求 |
+| **轻量** | 单文件 12.5MB（内嵌 mermaid + marp-core + 12 主题 + 前端），零运行时依赖、离线可用、0 外网请求 |
+| **CLI** | `MarpWorkbench.exe --export deck.md --format pptx-editable`：不打开界面，headless Chrome 自动导出 PPTX（图片版/可编辑）/PDF/HTML；stdout JSON，适合 AI/脚本 |
 
 ---
 
@@ -265,9 +286,10 @@ pnpm run verify:m3       # Mermaid / 网络图片本地化 / 图片原位编辑 
 pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻页 14 项
 pnpm run verify:editable # PPTX 可编辑：文字/表格/背景/备注 + python-pptx 校验 23 项
 pnpm run verify:mermaid-ui # Mermaid 19 类示例/尺寸/插入/原位编辑 17 项
+pnpm run verify:cli       # CLI：md→可编辑/图片版 PPTX、PDF、HTML、错误路径 20 项
 ```
 
-最近一轮结果：**全部通过**（12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17）；PPTX 可编辑导出由 python-pptx 校验（13 页、13.333×7.5in、13 页背景、1 个原生表格、中文文本/备注可提取）；Mermaid 默认宽度 1120/1280（88%），10 类示例均可渲染；零外网请求、零 JavaScript 错误。
+最近一轮结果：**全部通过**（12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17 · 20/20）；PPTX 可编辑导出由 python-pptx 校验（13 页、13.333×7.5in、13 页背景、1 个原生表格、中文文本/备注可提取）；Mermaid 默认宽度 1120/1280（88%），10 类示例均可渲染；零外网请求、零 JavaScript 错误。
 
 ---
 
@@ -279,7 +301,8 @@ pnpm run verify:mermaid-ui # Mermaid 19 类示例/尺寸/插入/原位编辑 17 
 - [x] M3.1 体验：预览滚动稳定 + 全屏播放
 - [x] M4 可编辑导出：PPTX 可编辑（Beta）——文字/列表/代码/表格为 PowerPoint 原生对象，背景保真，备注保留
 - [x] M5.0 Mermaid 体验：尺寸选项（`%% mwb-size`）+ 19 类示例库 + 图表原位编辑；AI 写作规范/Prompt 文档
-- [ ] M5.1 AI 集成：本地 HTTP/CLI → MCP Server（计划见 [docs/M5_PLAN.md](docs/M5_PLAN.md)）
+- [x] M5.1 CLI：`--export md → pptx/pptx-editable/pdf/html`（一条命令出 PPT）
+- [ ] M5.1 HTTP API / MCP Server（计划见 [docs/M5_PLAN.md](docs/M5_PLAN.md)）
 - [ ] M4 发布：新手模板 / 幻灯片增删拖拽 / 导出后打开文件夹 / 打包与 GitHub Release
 
 ---
@@ -289,6 +312,8 @@ pnpm run verify:mermaid-ui # Mermaid 19 类示例/尺寸/插入/原位编辑 17 
 | 文档 | 内容 |
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | 项目计划：产品定义、范围、架构、里程碑、风险 |
+| [docs/CLI.md](docs/CLI.md) | CLI 使用说明：参数、AI 工作流、实测、FAQ |
+| [docs/M5_1_ACCEPTANCE.md](docs/M5_1_ACCEPTANCE.md) | M5.1 验收：CLI 20/20 与前端自动导出 |
 | [docs/M5_0_ACCEPTANCE.md](docs/M5_0_ACCEPTANCE.md) | M5.0 验收：Mermaid 尺寸/示例/原位编辑（含实测数据） |
 | [docs/M4_ACCEPTANCE.md](docs/M4_ACCEPTANCE.md) | M4 验收：PPTX 可编辑导出（含实测数据与限制） |
 | [docs/AI_WRITING_GUIDE.md](docs/AI_WRITING_GUIDE.md) · [docs/AI_PROMPT.md](docs/AI_PROMPT.md) | 给 AI 的写作规范 / 可复制 Prompt |
