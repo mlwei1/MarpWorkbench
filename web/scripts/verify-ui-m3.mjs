@@ -145,14 +145,25 @@ async function main() {
   await new Promise((r) => setTimeout(r, 1500))
   step('进入编辑器', true, page.url())
 
-  // ---------- 1) mermaid 插入 ----------
+  // ---------- 1) mermaid 插入（M5 起走图表对话框：默认流程图 + 自动尺寸） ----------
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll('.editor-toolbar button')].find((b) => b.textContent?.includes('图表'))
     btn?.click()
   })
+  await page.waitForSelector('.mwb-mermaid-dialog', { timeout: 15000 })
+  await page.waitForFunction(
+    () => !!document.querySelector('.mwb-mermaid-preview svg, .mwb-mermaid-preview .mwb-mermaid-preview-error'),
+    { timeout: 45000 },
+  ).catch(() => null)
+  await page.click('button.primary')
+  await page.waitForSelector('.mwb-mermaid-dialog', { timeout: 10000, hidden: true }).catch(() => null)
   await new Promise((r) => setTimeout(r, 600))
   let md = await readEditor(page)
-  step('工具栏插入 mermaid 模板', /```mermaid/.test(md) && /graph LR/.test(md), md.match(/```mermaid[\s\S]{0,60}/)?.[0]?.replace(/\n/g, '⏎') || '')
+  step(
+    '图表对话框插入 mermaid 代码块',
+    /```mermaid/.test(md) && /graph LR/.test(md),
+    md.match(/```mermaid[\s\S]{0,60}/)?.[0]?.replace(/\n/g, '⏎') || '',
+  )
   // mermaid 首次渲染需要懒加载 5MB bundle（~3-5s）：等待 SVG 或错误框出现
   await page
     .waitForFunction(

@@ -1,6 +1,6 @@
 {
   "name": "marp-workbench",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "MarpWorkbench — 便携单文件 Marp 幻灯片工作台（本地服务 + 浏览器 UI）",
   "scripts": {
@@ -17,7 +17,8 @@
     "verify:m2": "node scripts/visual-e2e-m2.mjs",
     "verify:m3": "node scripts/visual-e2e-m3.mjs",
     "verify:m3fix": "node scripts/visual-e2e-m3fix.mjs",
-    "verify:editable": "node scripts/verify-editable-pptx.mjs"
+    "verify:editable": "node scripts/verify-editable-pptx.mjs",
+    "verify:mermaid-ui": "node scripts/verify-mermaid-ui.mjs"
   },
   "engines": {
     "node": ">=20"

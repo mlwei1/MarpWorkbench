@@ -35,6 +35,7 @@ function test(name, fn) {
 
 const hashMod = await bundle('hash.ts', 'hash.mjs')
 const replaceMod = await bundle('replace.ts', 'replace.mjs')
+const sizeMod = await bundle('size.ts', 'size.mjs')
 
 // ---------- sha1 ----------
 test('sha1 与 Node crypto 一致（空串/abc/中文/长文本）', () => {
@@ -92,20 +93,53 @@ test('findMermaidBlocks：位置/原文/解码代码正确', () => {
   assert.equal(replaceMod.replaceMermaidBlocks(html, blocks, () => null), html)
 })
 
-// ---------- SVG 清理 ----------
+// ---------- SVG 清理（M5：默认放大 + 尺寸） ----------
 const SVG = '<svg id="mermaid-1" width="100%" style="max-width: 523.5px;" viewBox="0 0 523.5 185" xmlns="http://www.w3.org/2000/svg"><g><text>开始</text></g></svg>'
-test('cleanupMermaidSvg：保留 viewBox/max-width，去掉固定 px，加自适应 max-height', () => {
+test('cleanupMermaidSvg：默认取消自然宽度上限（max-width:100%）、保留 viewBox、无固定 px', () => {
   const out = replaceMod.cleanupMermaidSvg(SVG)
   assert.match(out, /viewBox="0 0 523\.5 185"/)
   assert.match(out, /width="100%"/)
   assert.doesNotMatch(out, /\bheight="185"/)
-  assert.match(out, /max-width:523\.5px/)
+  assert.match(out, /max-width:100%/) // 旧实现为 max-width:523.5px（自然宽度）
+  assert.doesNotMatch(out, /max-width:523\.5px/)
   assert.match(out, new RegExp(`max-height:${replaceMod.MERMAID_SVG_MAX_HEIGHT_PX}px`))
   assert.match(out, /height:auto/)
+  assert.match(out, /margin:0 auto/)
 })
 test('cleanupMermaidSvg：无 max-width 的 svg 用 100% 兜底', () => {
   const out = replaceMod.cleanupMermaidSvg('<svg viewBox="0 0 10 10"><g/></svg>')
   assert.match(out, /max-width:100%/)
+})
+test('cleanupMermaidSvg(svg, size)：s/m/l/xl 分别得到契约 §1.2 的 max-width/max-height', () => {
+  const cases = [
+    ['s', '60%', 480],
+    ['m', '80%', 540],
+    ['l', '100%', 560],
+    ['xl', '100%', 640],
+  ]
+  for (const [preset, maxWidth, maxHeight] of cases) {
+    const size = sizeMod.parseMermaidSize(`%% mwb-size: ${preset}\ngraph LR\n  A --> B`)
+    const out = replaceMod.cleanupMermaidSvg(SVG, size)
+    assert.match(out, new RegExp(`max-width:${maxWidth.replace('%', '%')}`), `${preset} max-width`)
+    assert.match(out, new RegExp(`max-height:${maxHeight}px`), `${preset} max-height`)
+    assert.match(out, /viewBox="0 0 523\.5 185"/)
+  }
+})
+test('cleanupMermaidSvg(svg, size)：自定义 70% / 900px 生效，max-height 回到默认 560', () => {
+  const size70 = sizeMod.parseMermaidSize('%% mwb-size: 70%\ngraph LR\n  A --> B')
+  const out70 = replaceMod.cleanupMermaidSvg(SVG, size70)
+  assert.match(out70, /max-width:70%/)
+  assert.match(out70, /max-height:560px/)
+  const sizePx = sizeMod.parseMermaidSize('%% mwb-size: 900px\ngraph LR\n  A --> B')
+  const outPx = replaceMod.cleanupMermaidSvg(SVG, sizePx)
+  assert.match(outPx, /max-width:900px/)
+  assert.match(outPx, /max-height:560px/)
+})
+test('cleanupMermaidSvg 幂等：对已清理 svg 再清理不叠加 style', () => {
+  const once = replaceMod.cleanupMermaidSvg(SVG)
+  const twice = replaceMod.cleanupMermaidSvg(once)
+  assert.equal((twice.match(/style=/g) || []).length, 1)
+  assert.equal((twice.match(/max-height:560px/g) || []).length, 1)
 })
 test('id 模板化：缓存复用时可生成不同 id', () => {
   const svg = '<svg id="mwb-mermaid-3-abc"><marker id="mwb-mermaid-3-abc_pointEnd"/><g marker-end="url(#mwb-mermaid-3-abc_pointEnd)"/></svg>'
@@ -126,6 +160,100 @@ test('wrapper/error 块：class、hash、转义正确', () => {
   assert.match(err, /class="mwb-mermaid-error"/)
   assert.match(err, /Parse error &lt;bad&gt; &amp; &quot;quote&quot;/)
   assert.match(err, /已保留原始代码块/)
+})
+
+// ---------- 尺寸指令（M5 §1.2） ----------
+const { parseMermaidSize, serializeMermaidSize, getMermaidSizeOptions, stripMermaidSizeDirective, MERMAID_SIZE_SCAN_LINES } = sizeMod
+
+test('parseMermaidSize：无指令 → auto（max-width:100%、max-height:560、无 directiveValue）', () => {
+  const size = parseMermaidSize('graph LR\n  A --> B')
+  assert.equal(size.preset, 'auto')
+  assert.equal(size.maxWidth, '100%')
+  assert.equal(size.maxHeightPx, 560)
+  assert.equal(size.directiveValue, undefined)
+  assert.ok(size.label.length > 0)
+})
+test('parseMermaidSize：预设别名 s/small/小、m/medium/中、l/large/大、xl/xlarge/超大', () => {
+  const expect = (v, preset, maxWidth, maxHeight) => {
+    const size = parseMermaidSize(`%% mwb-size: ${v}\ngraph LR\n  A --> B`)
+    assert.equal(size.preset, preset, `preset for ${v}`)
+    assert.equal(size.maxWidth, maxWidth, `maxWidth for ${v}`)
+    assert.equal(size.maxHeightPx, maxHeight, `maxHeight for ${v}`)
+    assert.equal(size.directiveValue, preset === 'auto' ? undefined : preset)
+  }
+  expect('s', 's', '60%', 480)
+  expect('small', 's', '60%', 480)
+  expect('小', 's', '60%', 480)
+  expect('m', 'm', '80%', 540)
+  expect('medium', 'm', '80%', 540)
+  expect('中', 'm', '80%', 540)
+  expect('l', 'l', '100%', 560)
+  expect('large', 'l', '100%', 560)
+  expect('大', 'l', '100%', 560)
+  expect('xl', 'xl', '100%', 640)
+  expect('xlarge', 'xl', '100%', 640)
+  expect('超大', 'xl', '100%', 640)
+  expect('auto', 'auto', '100%', 560)
+  expect('自动', 'auto', '100%', 560)
+})
+test('parseMermaidSize：大小写不敏感 + 冒号/空格容忍', () => {
+  for (const line of ['%% mwb-size: XL', '%% MWB-SIZE : xl', '  %%\tmwb-size:   Xl  ', '%%Mwb-Size:Xl']) {
+    const size = parseMermaidSize(`${line}\ngraph LR\n  A --> B`)
+    assert.equal(size.preset, 'xl', `line=${line}`)
+  }
+})
+test('parseMermaidSize：自定义 70% / 900px', () => {
+  const percent = parseMermaidSize('%% mwb-size: 70%\ngraph LR\n  A --> B')
+  assert.equal(percent.preset, 'custom')
+  assert.equal(percent.maxWidth, '70%')
+  assert.equal(percent.maxHeightPx, 560)
+  assert.equal(percent.directiveValue, '70%')
+  assert.match(percent.label, /70%/)
+  const px = parseMermaidSize('%% mwb-size: 900PX\ngraph LR\n  A --> B')
+  assert.equal(px.preset, 'custom')
+  assert.equal(px.maxWidth, '900px')
+  assert.equal(px.directiveValue, '900px')
+})
+test('parseMermaidSize：非法值 / 越界 → 回退 auto', () => {
+  for (const v of ['999%', '0%', '50px', '2000px', 'hello', 'xl2', '']) {
+    const size = parseMermaidSize(`%% mwb-size: ${v}\ngraph LR\n  A --> B`)
+    assert.equal(size.preset, 'auto', `value=${JSON.stringify(v)}`)
+    assert.equal(size.maxWidth, '100%')
+  }
+})
+test(`parseMermaidSize：只扫描前 ${MERMAID_SIZE_SCAN_LINES} 行（第 6 行指令不生效）`, () => {
+  assert.equal(MERMAID_SIZE_SCAN_LINES, 5)
+  const code6 = ['graph LR', '  A --> B', '', '', '', '%% mwb-size: xl', '  B --> C'].join('\n')
+  assert.equal(parseMermaidSize(code6).preset, 'auto')
+  const code5 = ['graph LR', '  A --> B', '', '', '%% mwb-size: xl'].join('\n')
+  assert.equal(parseMermaidSize(code5).preset, 'xl')
+})
+test('serializeMermaidSize：auto→null，预设→规范值，custom 校验', () => {
+  assert.equal(serializeMermaidSize('auto'), null)
+  assert.equal(serializeMermaidSize('s'), 's')
+  assert.equal(serializeMermaidSize('m'), 'm')
+  assert.equal(serializeMermaidSize('l'), 'l')
+  assert.equal(serializeMermaidSize('xl'), 'xl')
+  assert.equal(serializeMermaidSize('custom', '70%'), '70%')
+  assert.equal(serializeMermaidSize('custom', ' 70 % '), '70%')
+  assert.equal(serializeMermaidSize('custom', '900px'), '900px')
+  assert.equal(serializeMermaidSize('custom', '0%'), null)
+  assert.equal(serializeMermaidSize('custom', '2000px'), null)
+  assert.equal(serializeMermaidSize('custom', 'abc'), null)
+  assert.equal(serializeMermaidSize('custom'), null)
+})
+test('getMermaidSizeOptions：含 auto/s/m/l/xl/custom 六个选项', () => {
+  const options = getMermaidSizeOptions()
+  assert.equal(options.length, 6)
+  assert.deepEqual(options.map((o) => o.value), ['auto', 's', 'm', 'l', 'xl', 'custom'])
+  assert.equal(options[0].label, '自动（推荐）')
+  assert.ok(options.every((o) => typeof o.label === 'string' && o.label.length > 0))
+})
+test('stripMermaidSizeDirective：删除指令行、保留其它行；无指令原样返回', () => {
+  const withDirective = '%% mwb-size: xl\ngraph LR\n  A --> B'
+  assert.equal(stripMermaidSizeDirective(withDirective), 'graph LR\n  A --> B')
+  const noDirective = 'graph LR\n  A --> B'
+  assert.equal(stripMermaidSizeDirective(noDirective), noDirective)
 })
 
 // ---------- 汇总 ----------

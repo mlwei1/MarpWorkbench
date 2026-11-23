@@ -81,3 +81,9 @@ const remoteBannerModules = import.meta.glob('../insert/RemoteImagesBanner.vue')
 
 /** export-eng 的 `<RemoteImagesBanner>`（M3 网络图片本地化提示条）；文件未就绪时 null */
 export const RemoteImagesBannerAsync = pick(remoteBannerModules, '../insert/RemoteImagesBanner.vue')
+
+// ---------- M5：Mermaid 插入/编辑对话框（marp-tech 的 MermaidInsertDialog.vue） ----------
+const mermaidDialogModules = import.meta.glob('../insert/MermaidInsertDialog.vue') as Record<string, AsyncModule>
+
+/** 图表插入/编辑对话框（10 类示例 + 实时预览 + 尺寸选项）；文件未就绪时 null */
+export const MermaidInsertDialogAsync = pick(mermaidDialogModules, '../insert/MermaidInsertDialog.vue')

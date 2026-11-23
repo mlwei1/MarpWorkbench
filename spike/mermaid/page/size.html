@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>mermaid size test</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #e9edf2; }
+  #deck { width: 1280px; }
+  #deck svg[data-marpit-svg] { display: block; margin: 0 auto 24px; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+  #status {
+    position: fixed; left: 0; top: 0; z-index: 9;
+    font: 12px/1.5 Consolas, monospace; color: #d7ffe6; background: rgba(10,20,15,.9);
+    padding: 6px 10px; max-width: 760px; white-space: pre-wrap;
+  }
+  #status.fail { color: #ffd7d7; background: rgba(40,0,0,.92); }
+</style>
+</head>
+<body>
+<div id="status">running…</div>
+<div id="deck"></div>
+
+<script src="/marp-core.browser.js"></script>
+<script src="/out/mermaid-module.js"></script>
+<script>
+/* global MarpCoreBundle, MwbMermaid */
+;(function () {
+  window.__DONE__ = false
+  window.__RESULT__ = null
+  window.__ARTIFACTS_B64__ = null
+
+  var checks = []
+  function check(name, ok, detail) {
+    checks.push({ name: name, ok: !!ok, detail: detail === undefined ? '' : String(detail).slice(0, 900) })
+  }
+  function b64EncodeUnicode(str) {
+    var bytes = new TextEncoder().encode(str)
+    var bin = ''
+    for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+    return btoa(bin)
+  }
+  function els(root, sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)) }
+
+  var WIDE = [
+    'graph LR',
+    '  A[开始] --> B{检查}',
+    '  B -->|通过| C[发布上线]',
+    '  B -->|不通过| D[修复]',
+  ].join('\n')
+  var TALL = [
+    'graph TD',
+    '  A[开始] --> B[需求]',
+    '  B --> C[设计]',
+    '  C --> D[开发]',
+    '  D --> E[测试]',
+    '  E --> F[上线]',
+  ].join('\n')
+
+  function fence(code) { return '```mermaid\n' + code + '\n```' }
+
+  // 9 页：1) 2 节点默认（测放大） 2) s 3) m 4) l(竖向) 5) xl(竖向) 6) 70% 7) 900px 8) 非法→auto 9) 第 6 行指令→auto
+  var MD = [
+    '---',
+    'theme: default',
+    '---',
+    '',
+    fence(WIDE),
+    '',
+    '---',
+    '',
+    '## 小 s（60% / 480px）',
+    '',
+    fence('%% mwb-size: s\n' + WIDE),
+    '',
+    '---',
+    '',
+    '## 中 m（80% / 540px）',
+    '',
+    fence('%% mwb-size: m\n' + WIDE),
+    '',
+    '---',
+    '',
+    '## 大 l（100% / 560px）· 竖向图',
+    '',
+    fence('%% mwb-size: l\n' + TALL),
+    '',
+    '---',
+    '',
+    fence('%% mwb-size: xl\n' + TALL),
+    '',
+    '---',
+    '',
+    '## 自定义 70%',
+    '',
+    fence('%% mwb-size: 70%\n' + WIDE),
+    '',
+    '---',
+    '',
+    '## 自定义 900px',
+    '',
+    fence('%% mwb-size: 900px\n' + WIDE),
+    '',
+    '---',
+    '',
+    '## 非法指令 999% → auto（100% / 560px）',
+    '',
+    fence('%% mwb-size: 999%\n' + WIDE),
+    '',
+    '---',
+    '',
+    '## 第 6 行指令不生效 → auto（100% / 560px）',
+    '',
+    fence(['graph LR', '  A[开始] --> B[结束]', '', '', '', '%% mwb-size: xl'].join('\n')),
+  ].join('\n')
+
+  // 期望值（与契约 §1.2 对照；slide 9 的指令在第 6 行，应回退 auto）
+  var EXPECT = [
+    { preset: 'auto', maxWidth: '100%', maxHeight: 560 },
+    { preset: 's', maxWidth: '60%', maxHeight: 480 },
+    { preset: 'm', maxWidth: '80%', maxHeight: 540 },
+    { preset: 'l', maxWidth: '100%', maxHeight: 560 },
+    { preset: 'xl', maxWidth: '100%', maxHeight: 640 },
+    { preset: 'custom', maxWidth: '70%', maxHeight: 560 },
+    { preset: 'custom', maxWidth: '900px', maxHeight: 560 },
+    { preset: 'auto', maxWidth: '100%', maxHeight: 560 },
+    { preset: 'auto', maxWidth: '100%', maxHeight: 560 },
+  ]
+
+  function parseStyle(style) {
+    var out = {}
+    String(style || '')
+      .split(';')
+      .forEach(function (part) {
+        var i = part.indexOf(':')
+        if (i > 0) out[part.slice(0, i).trim()] = part.slice(i + 1).trim()
+      })
+    return out
+  }
+  function viewBoxSize(svgEl) {
+    var vb = (svgEl.getAttribute('viewBox') || '').split(/\s+/).map(Number)
+    return vb.length === 4 && vb.every(function (n) { return isFinite(n) }) ? { w: vb[2], h: vb[3] } : null
+  }
+  function contentBox(section) {
+    var r = section.getBoundingClientRect()
+    var cs = getComputedStyle(section)
+    var padT = parseFloat(cs.paddingTop) || 0
+    var padL = parseFloat(cs.paddingLeft) || 0
+    return {
+      rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom, width: r.width, height: r.height },
+      content: { left: r.left + padL, top: r.top + padT, width: r.width - padL - (parseFloat(cs.paddingRight) || 0), height: r.height - padT - (parseFloat(cs.paddingBottom) || 0) },
+    }
+  }
+  function inside(inner, box, tol) {
+    tol = tol || 1
+    return inner.left >= box.left - tol && inner.right <= box.left + box.width + tol && inner.top >= box.top - tol && inner.bottom <= box.top + box.height + tol
+  }
+
+  async function run() {
+    var result = { ok: false, checks: checks, ms: {}, browser: navigator.userAgent, slides: [] }
+    var t0 = performance.now()
+    try {
+      var bundle = window.MarpCoreBundle && window.MarpCoreBundle.MarpCore
+      var Mwb = window.MwbMermaid
+      check('MarpCoreBundle 全局可用', !!(bundle && bundle.Marp && bundle.browser))
+      check('模块导出 renderMermaidPreview', typeof Mwb.renderMermaidPreview === 'function')
+      check('模块导出 size API（parse/serialize/options）', typeof Mwb.parseMermaidSize === 'function' && typeof Mwb.serializeMermaidSize === 'function' && typeof Mwb.getMermaidSizeOptions === 'function')
+
+      var marp = new bundle.Marp({ html: true, script: false, minifyCSS: true, math: { lib: 'mathjax' }, emoji: { shortcode: true, unicode: false } })
+      var tm = performance.now()
+      var res = marp.render(MD)
+      result.ms.marpRender = Math.round(performance.now() - tm)
+      var rawBlocks = (res.html.match(/class="language-(?:mermaid|mmd)"/g) || []).length
+      check('marp 输出含 9 个 mermaid 代码块', rawBlocks === 9, rawBlocks)
+
+      var ta = performance.now()
+      var outHtml = await Mwb.renderMermaidInHtml(res.html)
+      result.ms.mermaidRenderAll = Math.round(performance.now() - ta)
+      var doc = new DOMParser().parseFromString(outHtml, 'text/html')
+      var figs = els(doc, '.mwb-mermaid')
+      var svgs = els(doc, '.mwb-mermaid svg')
+      var errBoxes = els(doc, '.mwb-mermaid-error')
+      check('9 个代码块都渲染成图（无错误块，指令不破坏渲染）', figs.length === 9 && svgs.length === 9 && errBoxes.length === 0, 'figs=' + figs.length + ' errors=' + errBoxes.length)
+
+      // ---- 样式断言（契约 §1.2） ----
+      var styleMismatch = []
+      svgs.forEach(function (svgEl, i) {
+        var style = parseStyle(svgEl.getAttribute('style'))
+        var exp = EXPECT[i]
+        var gotW = style['max-width']
+        var gotH = style['max-height']
+        var ok = gotW === exp.maxWidth && gotH === exp.maxHeight + 'px' && style['width'] === '100%' && style['height'] === 'auto'
+        if (!ok) styleMismatch.push({ slide: i + 1, expect: exp, got: { maxWidth: gotW, maxHeight: gotH, width: style['width'], height: style['height'] } })
+      })
+      check('每页 SVG style 的 max-width/max-height 符合尺寸指令', styleMismatch.length === 0, JSON.stringify(styleMismatch))
+      check('默认（无指令）max-width 为 100%（旧版是自然宽度 px）', parseStyle(svgs[0].getAttribute('style'))['max-width'] === '100%')
+
+      // ---- 挂载到页面（marp CSS + browser helper）后测量真实渲染宽度 ----
+      var deck = document.getElementById('deck')
+      var styleEl = document.createElement('style')
+      styleEl.textContent = res.css
+      document.head.appendChild(styleEl)
+      deck.innerHTML = outHtml
+      try { bundle.browser(deck) } catch (e) { check('marp browser helper 执行', false, e && e.message) }
+      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r) }) })
+
+      var slides = els(deck, 'svg[data-marpit-svg]')
+      check('页面挂载 9 页', slides.length === 9, slides.length)
+      var overflow = []
+      var measure = []
+      slides.forEach(function (slideSvg, si) {
+        var section = slideSvg.querySelector('foreignObject > section')
+        if (!section) return
+        var cb = contentBox(section)
+        var mSvg = section.querySelector('.mwb-mermaid svg')
+        var natural = mSvg ? viewBoxSize(mSvg) : null
+        var r = mSvg ? mSvg.getBoundingClientRect() : null
+        var fitsSection = r ? inside(r, cb.rect) : false
+        var fitsContent = r ? inside(r, cb.content) : false
+        var oldWidth = mSvg && natural ? Math.min(natural.w, cb.content.width) : null
+        measure.push({
+          slide: si + 1,
+          preset: EXPECT[si] && EXPECT[si].preset,
+          naturalWidth: natural ? +natural.w.toFixed(1) : null,
+          naturalHeight: natural ? +natural.h.toFixed(1) : null,
+          contentWidth: +cb.content.width.toFixed(1),
+          contentHeight: +cb.content.height.toFixed(1),
+          renderedWidth: r ? Math.round(r.width) : null,
+          renderedHeight: r ? Math.round(r.height) : null,
+          oldRenderedWidth: oldWidth ? Math.round(oldWidth) : null,
+          svgTop: r ? +r.top.toFixed(1) : null,
+          svgBottom: r ? +r.bottom.toFixed(1) : null,
+          sectionTop: +cb.rect.top.toFixed(1),
+          sectionBottom: +cb.rect.bottom.toFixed(1),
+          contentBottom: +(cb.content.top + cb.content.height).toFixed(1),
+          fitBottomPadding: r ? +(cb.rect.bottom - r.bottom).toFixed(1) : null,
+          fitsSection: fitsSection,
+          fitsContent: fitsContent,
+        })
+        if (!fitsSection) overflow.push({ slide: si + 1, renderedWidth: r && Math.round(r.width), renderedHeight: r && Math.round(r.height) })
+      })
+      result.slides = measure
+      check('所有图都在 16:9 slide 内（含 xl 640px 竖向图不溢出）', overflow.length === 0, JSON.stringify(overflow))
+
+      var first = measure[0]
+      var increase = first && first.oldRenderedWidth ? Math.round((first.renderedWidth / first.oldRenderedWidth) * 100 - 100) : null
+      check('2 节点小图默认渲染宽度大于旧自然宽度', !!first && first.renderedWidth > first.oldRenderedWidth, JSON.stringify({ renderedWidth: first && first.renderedWidth, oldRenderedWidth: first && first.oldRenderedWidth, increasePercent: increase, naturalWidth: first && first.naturalWidth }))
+      result.smallDiagram = { naturalWidth: first.naturalWidth, oldRenderedWidth: first.oldRenderedWidth, newRenderedWidth: first.renderedWidth, increasePercent: increase }
+
+      var xl = measure[4]
+      result.xlDiagram = xl
+
+      // ---- 压力用例：xl + h1 标题（真实用户常见组合；仅记录数据供文档说明，不做硬性断言） ----
+      try {
+        var stressMd = ['---', 'theme: default', '---', '', '# 标题', '', fence('%% mwb-size: xl\n' + TALL)].join('\n')
+        var stressRes = marp.render(stressMd)
+        var stressOut = await Mwb.renderMermaidInHtml(stressRes.html)
+        var stressDeck = document.createElement('div')
+        stressDeck.style.cssText = 'position:absolute;left:-20000px;top:0;width:1280px;'
+        document.body.appendChild(stressDeck)
+        var stressStyle = document.createElement('style')
+        stressStyle.textContent = stressRes.css
+        document.head.appendChild(stressStyle)
+        stressDeck.innerHTML = stressOut
+        try { bundle.browser(stressDeck) } catch (e) {}
+        await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r) }) })
+        var stressSection = stressDeck.querySelector('foreignObject > section')
+        var stressSvg = stressDeck.querySelector('.mwb-mermaid svg')
+        if (stressSection && stressSvg) {
+          var ssr = stressSection.getBoundingClientRect()
+          var sr2 = stressSvg.getBoundingClientRect()
+          result.xlWithHeading = {
+            renderedWidth: Math.round(sr2.width),
+            renderedHeight: Math.round(sr2.height),
+            svgTop: +sr2.top.toFixed(1),
+            svgBottom: +sr2.bottom.toFixed(1),
+            sectionTop: +ssr.top.toFixed(1),
+            sectionBottom: +ssr.bottom.toFixed(1),
+            overflowsBy: Math.max(0, +(sr2.bottom - ssr.bottom).toFixed(1)),
+            fitsSection: sr2.top >= ssr.top - 1 && sr2.bottom <= ssr.bottom + 1,
+          }
+        }
+        stressDeck.remove()
+        stressStyle.remove()
+      } catch (e) {
+        result.xlWithHeadingError = String((e && e.message) || e)
+      }
+
+      // ---- renderMermaidPreview API（对话框用） ----
+      var cacheBefore = Mwb.mermaidCacheSize()
+      var plainSvg = await Mwb.renderMermaidPreview('graph LR\n  A[开始] --> B[结束]')
+      check('renderMermaidPreview(无指令) 返回 svg 且 max-width:100%', /<svg/.test(plainSvg) && /max-width:100%/.test(plainSvg), plainSvg.slice(0, 160))
+      var sSvg = await Mwb.renderMermaidPreview('%% mwb-size: s\ngraph LR\n  A[开始] --> B[结束]')
+      check('renderMermaidPreview(s) → max-width:60% / max-height:480px', /max-width:60%/.test(sSvg) && /max-height:480px/.test(sSvg), sSvg.slice(0, 200))
+      var xlSvg = await Mwb.renderMermaidPreview('%% mwb-size: xl\ngraph LR\n  A[开始] --> B[结束]')
+      check('renderMermaidPreview(xl) → max-height:640px', /max-height:640px/.test(xlSvg), xlSvg.slice(0, 200))
+      var pxSvg = await Mwb.renderMermaidPreview('%% mwb-size: 900px\ngraph LR\n  A[开始] --> B[结束]')
+      check('renderMermaidPreview(900px) → max-width:900px', /max-width:900px/.test(pxSvg))
+      var previewIds = [plainSvg, sSvg, xlSvg].map(function (s) { return /<svg[^>]*\sid="([^"]+)"/.exec(s)?.[1] })
+      check('renderMermaidPreview 每次生成唯一 svg id', previewIds.every(Boolean) && new Set(previewIds).size === previewIds.length, previewIds.join(','))
+      check('renderMermaidPreview 不写全局缓存（缓存条目数不变）', Mwb.mermaidCacheSize() === cacheBefore, 'before=' + cacheBefore + ' after=' + Mwb.mermaidCacheSize())
+      var emptyErr = null
+      try { await Mwb.renderMermaidPreview('   ') } catch (e) { emptyErr = e }
+      check('renderMermaidPreview(空代码) 抛可读中文 Error', !!emptyErr && /代码为空/.test(String(emptyErr.message || emptyErr)), emptyErr && String(emptyErr.message))
+      var invalidErr = null
+      try { await Mwb.renderMermaidPreview('graph LR\n  A[开始 --> B') } catch (e) { invalidErr = e }
+      check('renderMermaidPreview(非法语法) 抛「Mermaid 渲染失败：…」Error', !!invalidErr && /Mermaid 渲染失败/.test(String(invalidErr.message || invalidErr)), invalidErr && String(invalidErr.message).slice(0, 160))
+
+      result.ms.total = Math.round(performance.now() - t0)
+      window.__ARTIFACTS_B64__ = { renderedHtml: b64EncodeUnicode(outHtml), rawMarpHtml: b64EncodeUnicode(res.html), css: res.css }
+      result.ok = checks.every(function (c) { return c.ok })
+    } catch (err) {
+      result.fatal = (err && (err.stack || err.message)) || String(err)
+      result.ok = false
+    }
+    window.__RESULT__ = result
+    window.__DONE__ = true
+    document.title = result.ok ? 'OK' : 'FAIL'
+    var st = document.getElementById('status')
+    st.className = result.ok ? '' : 'fail'
+    st.textContent =
+      (result.ok ? 'PASS' : 'FAIL') + ' | ' + checks.filter(function (c) { return !c.ok }).length + ' failed / ' + checks.length + ' checks\n' +
+      checks.filter(function (c) { return !c.ok }).map(function (c) { return '✗ ' + c.name + ' => ' + c.detail }).join('\n') +
+      (result.fatal ? '\nFATAL: ' + result.fatal : '')
+  }
+
+  run()
+})()
+</script>
+</body>
+</html>

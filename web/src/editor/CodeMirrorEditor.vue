@@ -192,6 +192,33 @@ function insertText(text: string, opts: InsertOptions = {}): void {
   v.focus()
 }
 
+/**
+ * M5：替换文档中 [from,to) 区间（用于 Mermaid 代码块原位替换），一次 dispatch 保留撤销历史。
+ * cursorLine：替换完成后光标落在的目标行（1-based，便于定位图表块）。
+ */
+function replaceRange(from: number, to: number, text: string, cursorLine?: number): void {
+  const v = view
+  if (!v) return
+  const docLen = v.state.doc.length
+  const start = Math.min(Math.max(0, Math.round(from)), docLen)
+  const end = Math.min(Math.max(start, Math.round(to)), docLen)
+  const insert = text
+  v.dispatch({
+    changes: { from: start, to: end, insert },
+    selection: EditorSelection.cursor(start + insert.length),
+    scrollIntoView: true,
+  })
+  if (cursorLine != null) {
+    const doc = v.state.doc
+    const lineNo = Math.min(Math.max(1, Math.round(cursorLine)), doc.lines)
+    v.dispatch({
+      selection: EditorSelection.cursor(doc.line(lineNo).from),
+      scrollIntoView: true,
+    })
+  }
+  v.focus()
+}
+
 function wrapSelection(beforeText: string, afterText: string, placeholder: string): void {
   const v = view
   if (!v) return
@@ -320,6 +347,7 @@ defineExpose({
   setCursor,
   scrollToLine,
   insertText,
+  replaceRange,
   format,
   undo: doUndo,
   redo: doRedo,

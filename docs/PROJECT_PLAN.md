@@ -1,6 +1,7 @@
-# MarpWorkbench（Marp 工作台）—— 项目计划 v1.6
+# MarpWorkbench（Marp 工作台）—— 项目计划 v1.7
 
-> 状态：**M4 可编辑导出完成（2026-11-22 验收通过）**——PPTX 可编辑（Beta）：文字/列表/代码/表格为 PowerPoint 原生对象，背景保真，备注保留 ｜ 版本：v1.6 ｜ 更新：2026-11-22
+> 状态：**M5.0 完成（2026-11-23 验收通过）**——Mermaid 尺寸选项 + 10 类示例库 + 图表原位编辑；AI 写作规范/Prompt 已产出，M5.1 AI 接口待确认 ｜ 版本：v1.7 ｜ 更新：2026-11-23
+> v1.7 变更：M5.0 Mermaid 体验批次完成并实测验收（报告见 `docs/M5_0_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M5_MERMAID.md`）；AI 集成计划见 `docs/M5_PLAN.md`。
 > v1.6 变更：M4 可编辑 PPTX 批次完成并实测验收（报告见 `docs/M4_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M4_PPTX_EDITABLE.md`）。
 > v1.5 变更：M3.1 体验修复完成并实测验收（报告见 `docs/M3_1_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3_FIX.md`）。
 > v1.4 变更：M3 批次完成并实测验收（报告见 `docs/M3_ACCEPTANCE.md`，契约见 `docs/UI_CONTRACT_M3.md`）。
@@ -596,13 +597,23 @@ marp-workbench/
 - **已知限制**：底图不可编辑；字体度量轻微差异；表格边框近似；本机 LibreOffice headless 校验环境挂起（python-pptx OOXML 校验兜底，建议人工用 PowerPoint 抽查）。
 - 版本：v0.2.0（exe 12.41MB）。
 
-### 下一步（M4 剩余 + M5）
+### M5.0 已完成（2026-11-23，详见 `docs/M5_0_ACCEPTANCE.md`）
 
-1. 新手模板/结构块（封面/目录/章节/数据页/结尾页一键插入）；幻灯片新建/复制/删除按钮。
-2. 大纲拖拽排序；属性面板文本框体验打磨；侧栏拖拽调宽。
-3. 导出后"打开所在文件夹"、PNG 批量、30/100 页性能回归。
-4. 历史快照回滚、空闲自动退出、首启 3 步引导；mermaid 首次加载体验优化（预加载/骨架）。
-5. 打包发布：图标/版本信息、便携模式、README/使用文档、Release zip + SHA256；可编辑 PPTX 用真实 PowerPoint 做一轮人工兼容性验收。
+- **Mermaid 图太小修复**：旧实现保留 mermaid 自然宽度上限（2 节点图仅 300px）；另外 Marp 主题 section 常用 flex 居中导致子项 shrink-to-fit，只加 `max-width:100%` 仍不放大。修复为 wrapper `width:100%` + SVG `max-width:100%`，默认占内容宽度 **1120/1280（88%）**；2 节点小图从 360px → 1120px。
+- **尺寸选项**：代码块第一行支持 `%% mwb-size: auto|s|m|l|xl|70%|900px`（保留在 Markdown 中），渲染映射到 60/80/100%、480/540/560/640 与自定义；非法值回退 auto。
+- **10 类示例库 + 插入/编辑对话框**：工具栏「◈ 图表」→ 流程图/时序图/类图/状态图/ER/甘特/饼图/思维导图/时间线/用户旅程示例 + 可编辑代码 + 实时预览 + 尺寸下拉；光标在已有图表内打开 = **原位编辑**（不新增块）。
+- **AI 写作文档（M5.1-A 交付）**：`docs/AI_WRITING_GUIDE.md`（给 AI 的完整 Marp 写作规范）+ `docs/AI_PROMPT.md`（4 个可复制 Prompt 模板），现在任意 AI 都能产出可导入的 .md；接口/CLI/MCP 计划见 `docs/M5_PLAN.md`。
+- **验收**：M5 E2E **17/17**（10 类预览、尺寸 xl/70% 生效、实际宽度 1120/1280、原位替换、默认 auto）；mermaid 专项 unit 23/23、render 28/28、size 18/18、print 23/23；全量回归 M1 13/13、M2 26/26、M3 21/21、M3.1 14/14、M4 23/23、冒烟 12/12；exe 12.43MB。
+- **已知**：xl + 大标题同页在部分主题会溢出（建议用「大」或去标题）；首次预览需懒加载 mermaid bundle（3–5s）。
+
+### 下一步（M4 剩余 + M5.1）
+
+1. **M5.1 AI 集成**（待确认方案，详见 `docs/M5_PLAN.md`）：文档轨已就绪；接着做本地 HTTP API + CLI 一键导出 → MCP Server；应用内 AI 入口/校验器。
+2. 新手模板/结构块（封面/目录/章节/数据页/结尾页一键插入）；幻灯片新建/复制/删除按钮。
+3. 大纲拖拽排序；属性面板文本框体验打磨；侧栏拖拽调宽。
+4. 导出后"打开所在文件夹"、PNG 批量、30/100 页性能回归。
+5. 历史快照回滚、空闲自动退出、首启 3 步引导；mermaid 首次加载体验优化（预加载/骨架）。
+6. 打包发布：图标/版本信息、便携模式、README/使用文档、Release zip + SHA256；可编辑 PPTX 用真实 PowerPoint 做一轮人工兼容性验收。
 
 ---
 

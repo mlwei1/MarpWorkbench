@@ -49,7 +49,7 @@ const codeButtons: ToolButton[] = [
 const insertButtons: ToolButton[] = [
   { label: '🖼 图片', title: '插入图片 / 背景图（光标在已有图片上时为编辑）', action: 'openImage' },
   { label: '▦ 表格', title: '插入表格', action: 'openTable' },
-  { label: '◈ 图表', title: '插入 Mermaid 图表', action: 'insertChart' },
+  { label: '◈ 图表', title: '插入 / 编辑 Mermaid 图表', action: 'insertChart' },
 ]
 
 function onButton(btn: ToolButton): void {

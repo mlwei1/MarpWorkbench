@@ -28,6 +28,7 @@ import {
 import {
   ExportPanelAsync,
   ImageInsertDialogAsync,
+  MermaidInsertDialogAsync,
   RemoteImagesBannerAsync,
   SlideNavigatorAsync,
   TableInsertDialogAsync,
@@ -36,6 +37,7 @@ import {
   loadPasteDrop,
 } from '../integrations/optionalComponents'
 import type { ParsedImageLike } from '../integrations/optionalComponents'
+import { findMermaidBlockAtLine, type MermaidBlockRef } from '../insert/mermaidBlock'
 import type { DeckDetail, RenderResult } from '../types'
 import { formatTime } from '../utils/format'
 
@@ -77,6 +79,9 @@ const rightOpen = ref(localStorage.getItem('mwb.edit.rightOpen') !== '0')
 const imageDialogOpen = ref(false)
 const imageMode = ref<'image' | 'background'>('image')
 const tableDialogOpen = ref(false)
+// M5 对话框：Mermaid 图表插入/编辑（initialBlock 非空 → 编辑模式）
+const mermaidDialogOpen = ref(false)
+const mermaidInitialBlock = ref<MermaidBlockRef | null>(null)
 
 let renderTimer: number | undefined
 let saveTimer: number | undefined
@@ -90,6 +95,7 @@ const ready = computed(() => !loading.value && !loadError.value && !!deck.value)
 const canExport = computed(() => !!ExportPanelAsync)
 const canImageInsert = computed(() => !!ImageInsertDialogAsync)
 const canTableInsert = computed(() => !!TableInsertDialogAsync)
+const canMermaidInsert = computed(() => !!MermaidInsertDialogAsync)
 
 // ---------------- 渲染（M3：sync → mermaid → assets，token 防竞态） ----------------
 let renderToken = 0
@@ -419,12 +425,38 @@ async function onImageInsert(result: {
   pendingImage.value = null
 }
 
-/** M3：插入 mermaid 图表模板，光标落在图内容行 */
+/** M5：打开 Mermaid 图表对话框（光标在已有 mermaid 块内 → 编辑模式；否则新建） */
 function onInsertChart(): void {
-  const template = '```mermaid\ngraph LR\n  A[开始] --> B[结束]\n```'
-  editorRef.value?.insertText(template + '\n', { block: true })
-  const endLine = editorRef.value?.getCursorLine() ?? 1
-  editorRef.value?.setCursor(Math.max(1, endLine - 2), 0)
+  if (!canMermaidInsert.value) {
+    toast('图表插入器尚未就绪', 'info')
+    return
+  }
+  const line = editorRef.value?.getCursorLine() ?? 1
+  mermaidInitialBlock.value = findMermaidBlockAtLine(content.value, line) || null
+  mermaidDialogOpen.value = true
+}
+
+/** M5：图表对话框插入 / 保存（编辑时原位替换，块数不变） */
+function onMermaidInsert(result: {
+  snippet: string
+  mode: 'insert' | 'edit'
+  from?: number
+  to?: number
+  cursorLine?: number
+}): void {
+  if (!result?.snippet) {
+    mermaidDialogOpen.value = false
+    return
+  }
+  if (result.mode === 'edit' && typeof result.from === 'number' && typeof result.to === 'number') {
+    editorRef.value?.replaceRange(result.from, result.to, result.snippet, result.cursorLine)
+    toast('图表已更新', 'success')
+  } else {
+    editorRef.value?.insertText(result.snippet + '\n', { block: true })
+    toast('已插入图表', 'success')
+  }
+  mermaidDialogOpen.value = false
+  mermaidInitialBlock.value = null
 }
 
 /** M3：网络图片本地化完成（RemoteImagesBanner emit localized） */
@@ -810,6 +842,16 @@ watch(deckId, () => {
       :current-page="page"
       @insert="onTableInsert"
       @close="tableDialogOpen = false"
+    />
+
+    <!-- Mermaid 图表插入/编辑对话框（M5：10 类示例 + 实时预览 + 尺寸） -->
+    <MermaidInsertDialogAsync
+      v-if="mermaidDialogOpen && MermaidInsertDialogAsync"
+      :markdown="content"
+      :current-page="page"
+      :initial-block="mermaidInitialBlock"
+      @insert="onMermaidInsert"
+      @close="mermaidDialogOpen = false; mermaidInitialBlock = null"
     />
   </div>
 </template>

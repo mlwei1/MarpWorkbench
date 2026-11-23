@@ -9,16 +9,20 @@
  * 因此提取 = 去标签（防御性：将来 marp 若加 hljs span 也不会串味）+ 实体反转义。
  */
 import type { MermaidBlock } from './types'
+import type { MermaidSize } from './size'
 
 /** <pre …><code …>…</code></pre>（mermaid/mmd 围栏） */
 const PRE_CODE_SOURCE = '<pre\\b[^>]*>\\s*<code\\b([^>]*)>([\\s\\S]*?)<\\/code>\\s*<\\/pre>'
 const CLASS_ATTR_SOURCE = '\\bclass\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\')'
 const MERMAID_LANG_RE = /(?:^|\s)language-(?:mermaid|mmd)(?:\s|$)/i
 
-/** SVG 在 16:9 slide（1280×720）里的最大高度：避开主题上下 padding，保证不溢出 */
+/** 默认最大高度（px）：16:9 slide（1280×720）内容区约 563px，留余量取 560（契约 M5 §1.1） */
 export const MERMAID_SVG_MAX_HEIGHT_PX = 560
 
-const WRAPPER_STYLE = 'display:flex;justify-content:center;align-items:center;max-width:100%;margin:8px auto;'
+// 关键：width:100%。Marp 主题的 section 常是 `display:flex; align-items:center` 的纵向布局，
+// 子项宽度会 shrink-to-fit；只写 max-width:100% 时 mermaid 会按自然宽度（如 300px）显示，
+// 这正是用户反馈"图太小"的根因（M5 验收实测 chartW=300 / slideW=1280）。
+const WRAPPER_STYLE = 'display:flex;justify-content:center;align-items:center;width:100%;max-width:100%;margin:8px auto;'
 const ERROR_STYLE =
   'font-size:14px;line-height:1.5;color:#b42318;background:#fef3f2;border:1px solid #fecdca;' +
   'border-radius:6px;padding:8px 12px;margin:8px 0;white-space:pre-wrap;word-break:break-word;'
@@ -92,20 +96,22 @@ function escapeHtmlText(text: string): string {
 }
 
 /**
- * 清理 mermaid 输出的 SVG：
+ * 清理 mermaid 输出的 SVG（M5：默认放大 + 支持每图尺寸）。
+ *
  * - 去掉固定 px 的 width/height 属性，保留 viewBox（矢量缩放关键）；
- * - 保留 mermaid 自带的 max-width（= 图的自然尺寸，避免小图被拉伸）；
- * - 强制 width:100%; height:auto; max-height:560px，16:9 slide 内不横向/纵向溢出；
+ * - 去掉 mermaid 自带的自然宽度上限（旧版保留 max-width:<自然宽度>px，导致 2 节点小图只有 ~300px）；
+ * - 默认：`width:100%; height:auto; max-width:100%; max-height:560px` → 小图放大到容器宽度、文字等比放大；
+ * - 传入 size 时按契约映射：s=60%/480、m=80%/540、l=100%/560、xl=100%/640、自定义 %/px（max-height 560）；
  * - 样式全部内联（预览 iframe / 打印页 / 导出 HTML 都不依赖应用 CSS）。
  */
-export function cleanupMermaidSvg(svg: string): string {
+export function cleanupMermaidSvg(svg: string, size?: MermaidSize): string {
+  const maxWidth = size?.maxWidth || '100%'
+  const maxHeightPx = size?.maxHeightPx || MERMAID_SVG_MAX_HEIGHT_PX
   return svg.replace(/<svg\b([^>]*)>/i, (_whole, rawAttrs: string) => {
     let attrs = String(rawAttrs)
-    const naturalWidth = /max-width\s*:\s*([\d.]+)px/i.exec(attrs)?.[1]
     attrs = attrs.replace(/\s(?:width|height)\s*=\s*"(?:\d+(?:\.\d+)?)(?:px)?"/gi, '')
     attrs = attrs.replace(/\sstyle\s*=\s*"(?:[^"]*)"/i, '').replace(/\sstyle\s*=\s*'[^']*'/i, '')
-    const maxWidth = naturalWidth ? `${naturalWidth}px` : '100%'
-    const style = `display:block;width:100%;height:auto;max-width:${maxWidth};max-height:${MERMAID_SVG_MAX_HEIGHT_PX}px;margin:0 auto;`
+    const style = `display:block;width:100%;height:auto;max-width:${maxWidth};max-height:${maxHeightPx}px;margin:0 auto;`
     return `<svg${attrs} width="100%" style="${style}">`
   })
 }

@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  <b>New in v0.2.0: editable PPTX export (Beta)</b> — text, lists, code and tables can be edited directly in PowerPoint, while theme backgrounds stay pixel-perfect as a high-res base layer.
+  <b>New in v0.3.0: Mermaid size options + 10 chart templates + in-place chart editing</b>; plus an <a href="docs/AI_WRITING_GUIDE.md">AI writing guide</a> and <a href="docs/AI_PROMPT.md">prompt templates</a> so ChatGPT / Claude / Cursor can produce import-ready Marp Markdown.
 </p>
 
 <p align="center">
@@ -27,11 +27,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">Download the latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.exe">single .exe (12.4 MB)</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/MarpWorkbench-v0.3.0-win-x64.exe">single .exe (12.4 MB)</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/MarpWorkbench-v0.2.0-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/MarpWorkbench-v0.3.0-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.2.0/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **Requirements**: Windows 10/11 (64-bit); export needs the built-in Edge (or Chrome); no Node/Rust required, fully offline. If SmartScreen appears on first run, choose “More info → Run anyway”.
@@ -57,7 +57,7 @@ Marp is great, but using it from VS Code is still friction:
 | Images | relative paths, paste, missing files | paste/drop auto-import; background/opacity/split-ratio controls; **click image button on an existing image = edit it in place** |
 | Tables | hand-write GFM | grid picker + inline cell editor + alignment |
 | Properties | hand-write front-matter | right-side **property inspector** (size/page numbers/header/footer/class/background) |
-| Diagrams | install plugins, configure mermaid | ` ```mermaid ` blocks render **out of the box** (bundled offline, exported as SVG) |
+| Diagrams | install plugins, configure mermaid | toolbar “◈ Diagram”: **10 templates + live preview + size options + in-place editing**; raw ` ```mermaid ` blocks also work |
 | Sharing | recipients must set up an environment | **single .exe**, double-click, runs offline |
 
 Core principle: **everything you produce is standard Marp Markdown** (copy it back to VS Code / `marp-cli` any time), but every format decision is a UI you can click.
@@ -99,6 +99,14 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
     <td align="center"><sub>Editable PPTX (Beta): text/tables are real PowerPoint objects; theme background is a high-res base layer</sub></td>
     <td align="center"><sub>The exported .pptx keeps the Marp layout when opened in PowerPoint / LibreOffice</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/images/mermaid-dialog.jpg" alt="Mermaid chart dialog: 10 templates + live preview + size" /></td>
+    <td><img src="docs/images/mermaid-size.jpg" alt="Mermaid charts now fill the content width; size is controlled by %% mwb-size" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>“◈ Diagram” dialog: 10 chart templates, editable code, live preview and size options</sub></td>
+    <td align="center"><sub>Small diagrams now scale to the content width; click an existing chart to edit it in place</sub></td>
+  </tr>
 </table>
 
 <p align="center">
@@ -120,8 +128,8 @@ Core principle: **everything you produce is standard Marp Markdown** (copy it ba
 Grab the latest from [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest):
 
 ```
-MarpWorkbench-v0.2.0-win-x64.exe     # single-file executable
-MarpWorkbench-v0.2.0-win-x64.zip     # exe + README (zh/en) + LICENSE
+MarpWorkbench-v0.3.0-win-x64.exe     # single-file executable
+MarpWorkbench-v0.3.0-win-x64.zip     # exe + README (zh/en) + LICENSE
 SHA256SUMS.txt                        # checksums
 ```
 
@@ -150,8 +158,9 @@ Double-click `MarpWorkbench.exe`. It starts a local server (127.0.0.1 only, rand
 1. Home → “New blank deck / Sample deck”, or import an existing `.md`
 2. Write Markdown on the left; preview updates on the right
 3. Use the **Inspector** on the right for theme / size / page numbers / header / footer / class / background
-4. Diagrams: toolbar “◈ Diagram”, or type a ` ```mermaid ` block
+4. Diagrams: toolbar “◈ Diagram” → pick one of 10 templates, edit the code, choose a size (auto/s/m/l/xl/custom %) → insert; click the same button with the cursor on an existing chart to **edit it in place**
 5. Top-bar **Export** → **PPTX (image-based) / PPTX editable (Beta) / PDF / HTML**; use **▶ Fullscreen** in the preview toolbar to present
+6. AI workflow: give any AI the [prompt templates](docs/AI_PROMPT.md) → save the `.md` → import it on the home page → tweak/export (see the [AI writing guide](docs/AI_WRITING_GUIDE.md))
 
 ### Keyboard shortcuts
 
@@ -166,6 +175,21 @@ Double-click `MarpWorkbench.exe`. It starts a local server (127.0.0.1 only, rand
 
 ---
 
+## 🤖 AI-written decks
+
+Any AI (ChatGPT / Claude / DeepSeek / Cursor…) can already produce import-ready Marp Markdown for this app:
+
+| Resource | Purpose |
+|---|---|
+| [docs/AI_WRITING_GUIDE.md](docs/AI_WRITING_GUIDE.md) | **Writing spec for AI**: front-matter, themes, images, Mermaid size directive, notes, page structure, self-check list |
+| [docs/AI_PROMPT.md](docs/AI_PROMPT.md) | **Copy-paste prompts**: one-line deck generation / material → deck / revise a deck / product-intro variables |
+| [docs/M5_PLAN.md](docs/M5_PLAN.md) | Plan for local HTTP API / CLI / MCP Server so AI can create decks and export PPTX directly (pending) |
+
+Quickest path: copy the prompt → generate `.md` with any AI → import it in MarpWorkbench → pick a theme/tweak → export PPTX / PDF.
+If the AI can read files, also give it `AI_WRITING_GUIDE.md` to maximise syntax accuracy.
+
+---
+
 ## 🧩 Features
 
 | Area | What you get |
@@ -176,7 +200,7 @@ Double-click `MarpWorkbench.exe`. It starts a local server (127.0.0.1 only, rand
 | **Inspector** | Theme, size (16:9 / 4:3), page numbers (global + per-slide tri-state), header/footer (global + per-slide override), global/per-slide class, page background (fit + opacity); only touches the target field, unknown fields are preserved |
 | **Images** | Paste/drop auto-import; inserter: normal image width / background full·left·right ratio 20–70% / opacity / blur / grayscale / cover·contain·fit, **live preview**; **click the image button with the cursor on an image to edit it in place** |
 | **Tables** | 12×12 grid picker, inline cell editing, header/first-column bold, alignment, GFM preview |
-| **Diagrams** | ` ```mermaid ` / ` ```mmd ` → SVG (flowchart / sequence / class / state / gantt / pie…), offline, lazy-loaded, graceful error fallback |
+| **Diagrams** | “◈ Diagram” dialog: **10 templates** (flowchart / sequence / class / state / ER / gantt / pie / mindmap / timeline / journey) + editable code + **live preview** + **size options** (auto/s/m/l/xl/custom %, written as `%% mwb-size`); small diagrams now scale to the content width; opening the dialog on an existing chart = **in-place editing**; raw ` ```mermaid ` blocks also work (offline, lazy-loaded, graceful errors) |
 | **Legacy docs** | Remote images shown through a local proxy + one-click “download to local `assets/`” that rewrites the Markdown; exports inline them automatically |
 | **Export** | PPTX (image-based, 2×, 16:9, speaker notes preserved), **PPTX editable (Beta: text, lists, code and tables are real PowerPoint objects; theme background is a high-res base layer; notes preserved)**, PDF (vector, 960×540 pt, extractable Chinese text), single-file HTML (plays offline) |
 | **Presentation** | Fullscreen playback (`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc) |
@@ -240,9 +264,10 @@ pnpm run verify:m2       # inspector / outline+thumbnails / image+table inserter
 pnpm run verify:m3       # Mermaid / remote-image localisation / in-place image editing / PDF with diagrams — 21 checks
 pnpm run verify:m3fix    # no preview jumping while typing + fullscreen arrow-key navigation — 14 checks
 pnpm run verify:editable # editable PPTX: text/tables/background/notes + python-pptx validation — 23 checks
+pnpm run verify:mermaid-ui # Mermaid 10 templates / sizes / insert / in-place edit — 17 checks
 ```
 
-Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23); the editable PPTX export is validated with python-pptx (13 slides, 13.333×7.5 in, 13 background blips, 1 native table, extractable Chinese text/notes); zero external requests, zero JavaScript errors.
+Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17); the editable PPTX export is validated with python-pptx (13 slides, 13.333×7.5 in, 13 background blips, 1 native table, extractable Chinese text/notes); Mermaid now renders 1120/1280 (88%) of the content width by default and all 10 templates render; zero external requests, zero JavaScript errors.
 
 ---
 
@@ -253,6 +278,8 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23); 
 - [x] M3 Enhancements: Mermaid diagrams / legacy remote images / in-place image editing
 - [x] M3.1 Experience: stable preview while typing + fullscreen presentation
 - [x] M4 Editable export: PPTX editable (Beta) — text/lists/code/tables become native PowerPoint objects, backgrounds stay faithful, notes preserved
+- [x] M5.0 Mermaid experience: size options (`%% mwb-size`) + 10-template library + in-place chart editing; AI writing guide & prompts
+- [ ] M5.1 AI integration: local HTTP/CLI → MCP Server (plan: [docs/M5_PLAN.md](docs/M5_PLAN.md))
 - [ ] M4 Release: starter templates / slide add-duplicate-delete / “open containing folder” after export / packaging & GitHub Release
 
 ---
@@ -262,7 +289,10 @@ Latest run: **all green** (12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23); 
 | Document | Content |
 |---|---|
 | [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) | Plan: product definition, scope, architecture, milestones, risks |
+| [docs/M5_0_ACCEPTANCE.md](docs/M5_0_ACCEPTANCE.md) | M5.0 acceptance: Mermaid sizes / templates / in-place editing |
 | [docs/M4_ACCEPTANCE.md](docs/M4_ACCEPTANCE.md) | M4 acceptance: editable PPTX export (measurements + limitations) |
+| [docs/AI_WRITING_GUIDE.md](docs/AI_WRITING_GUIDE.md) · [docs/AI_PROMPT.md](docs/AI_PROMPT.md) | AI writing spec / copy-paste prompts |
+| [docs/M5_PLAN.md](docs/M5_PLAN.md) | M5 plan: AI interfaces (HTTP/CLI/MCP) + docs track |
 | [docs/M3_1_ACCEPTANCE.md](docs/M3_1_ACCEPTANCE.md) | M3.1 acceptance: preview stability + fullscreen |
 | [docs/M3_ACCEPTANCE.md](docs/M3_ACCEPTANCE.md) | M3 acceptance: Mermaid / remote images / in-place image editing |
 | [docs/M2_ACCEPTANCE.md](docs/M2_ACCEPTANCE.md) | M2 acceptance: themes / inspector / outline / inserters |

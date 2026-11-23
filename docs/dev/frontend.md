@@ -391,3 +391,51 @@ doRender()（async，token 防竞态）
 - 全屏播放内翻页不同步编辑器当前页（退出后编辑器页面不变，符合契约）。
 - **曾阻塞 Lead e2e 的 server bug（已修复并验证）**：`scripts/visual-e2e-m3fix.mjs` 用中文 deck 名（`M3.1-滚动-全屏`，id 含 `.`）后直接深链打开 `/edit/<id>`；旧 release exe 的 SPA fallback 条件 `if !rel.contains('.')` → 带点的 id 返回 404 JSON（ASCII 深链正常；任何带 `.` 的 deck 名刷新都会 404）。desktop-packaging 已改为「前端路由前缀 或 末段无扩展名」→ index.html，并重建 release exe（2026-10-21 19:59:54）。修复后 Lead 的 `visual-e2e-m3fix.mjs` **14/14 全过**。
 - mermaid 首次加载 3–5s 期间预览先显示代码块再替换 SVG（同步占位策略，不跳动）。
+
+---
+
+## 13. M5.0 Mermaid 图表插入/编辑对话框（示例库 + 尺寸选项）
+
+> 契约：[`docs/UI_CONTRACT_M5_MERMAID.md`](../UI_CONTRACT_M5_MERMAID.md) §2/§3 ｜ 用户需求：「添加 mermaid 图时各个类型加示例，方便编辑」+「图太小，加强制尺寸选项」（尺寸渲染引擎由 mermaid-eng 实现，本文件只做 UI/插入链路）。
+
+### 13.1 新增 / 修改文件
+
+| 文件 | 说明 |
+| --- | --- |
+| `web/src/insert/MermaidInsertDialog.vue`（新建） | 三栏图表对话框：10 类示例卡 / 可编辑代码 / 实时预览 + 尺寸；插入与编辑两用 |
+| `web/src/insert/mermaidBlock.ts`（新建） | `findMermaidBlockAtLine(md, line, tolerance=1)` 精确定位 ```mermaid / ```mmd 块（跳未闭合/其它语言 fence）；尺寸指令解析/序列化/片段构建（`normalizeMermaidSize`/`parseMermaidSizeDirective`/`applyMermaidSizeDirective`/`buildMermaidSnippet`） |
+| `web/src/editor/types.ts` | `EditorApi` 增加 `replaceRange(from, to, text, cursorLine?)` |
+| `web/src/editor/CodeMirrorEditor.vue` | `replaceRange` 用一次 `view.dispatch({changes, selection})` 实现（保留撤销历史），可选定位到目标行 |
+| `web/src/views/EditView.vue` | 工具栏「◈ 图表」改为打开对话框：光标在 mermaid 块内（±1 行）→ 编辑模式；`@insert` edit → `replaceRange` 原位替换、insert → `insertText(snippet+'\n',{block:true})`；toast「已插入图表」/「图表已更新」 |
+| `web/src/integrations/optionalComponents.ts` | `MermaidInsertDialogAsync`（glob 异步包装，文件未就绪不炸构建） |
+| `web/src/insert/EditorToolbar.vue` | 图表按钮 title 改「插入 / 编辑 Mermaid 图表」 |
+
+### 13.2 对话框要点
+
+- **10 类中文示例**（全部真实可渲染，含缩进/箭头）：流程图 `graph LR`、时序图 `sequenceDiagram`、类图 `classDiagram`（中文用 `note`）、状态图 `stateDiagram-v2`（`state "待处理" as Pending`）、实体关系图 `erDiagram`（中文用属性注释/关系标签）、甘特图 `gantt`、饼图 `pie`、思维导图 `mindmap`、时间线 `timeline`、用户旅程 `journey`。
+- 点击类型卡覆盖代码（不弹确认）；中间 textarea 可直接改；`400ms` 防抖调 mermaid 模块 `renderMermaidPreview(code)` 实时预览，自增 token 防竞态；错误显示中文「图表渲染失败 + 详情」。
+- 尺寸下拉 `getMermaidSizeOptions()`：自动（推荐）/小/中/大/超大/自定义百分比（1–100）；选非 auto 时把 `%% mwb-size: <value>` 写入代码首行（mermaid 当注释忽略）。**每次重写前先删除代码前 5 行内所有旧指令，保证永不重复**；来自外部的 `px` 自定义指令在用户未改尺寸前原样保留（不静默改成 %）。
+- 编辑模式：标题「编辑 Mermaid 图表」、按钮「保存修改」，预填源码 + 尺寸（`parseMermaidSizeDirective`），保存由 `replaceRange` 原位替换（块数不变）。
+- 测试选择器（契约 §2.6）：`.mwb-mermaid-dialog` / `button.mwb-mermaid-type[data-type=flowchart|sequence|class|state|er|gantt|pie|mindmap|timeline|journey]` / `textarea.mwb-mermaid-code` / `.mwb-mermaid-preview`（失败加 `.mwb-mermaid-preview-error`）/ `select.mwb-mermaid-size`（auto/s/m/l/xl/custom）/ `input.mwb-mermaid-custom` / `button.primary` / `button.mwb-mermaid-cancel`；Esc 关闭、打开自动聚焦代码框。
+
+### 13.3 自测（真实 release exe + Chrome，`web/scripts/verify-mermaid-dialog.mjs`）
+
+| 场景 | 结果 |
+| --- | --- |
+| 打开对话框 | ✅ 10 个类型卡、标题「插入 Mermaid 图表」、首图预览 SVG |
+| 10 类示例逐个点击 | ✅ 全部渲染出 SVG、无 `.mwb-mermaid-preview-error`（流程图/时序图/类图/状态图/ER/甘特/饼图/思维导图/时间线/用户旅程） |
+| 时序图 + 尺寸「超大」插入 | ✅ Markdown `blocks=1`、含 `%% mwb-size: xl` 与 `sequenceDiagram`；预览 SVG `style="…max-height:640px"` |
+| 光标进块 → 编辑模式 | ✅ 标题「编辑 Mermaid 图表」、代码与尺寸（xl）预填 |
+| 尺寸改「自定义 70%」保存 | ✅ 原位替换 `blocks=1`、`directives=1`、`%% mwb-size: 70%`；预览 SVG `max-width:70%` |
+| 错误路径 / 取消 / Esc | ✅ 非法语法出现 `.mwb-mermaid-preview-error`（重新选示例后恢复）；`button.mwb-mermaid-cancel` 关闭；Esc 关闭 |
+| Esc / 无错误 | ✅ Esc 关闭；0 JS 错误 |
+| `mermaidBlock.ts` 单元测试 | ✅ `node --experimental-strip-types web/scripts/test-mermaid-block.ts` **10/10**（命中/±1 行/未闭合 fence/其它语言/多块/指令解析/序列化/snippet 去重） |
+| 回归 | ✅ M3 `verify-ui-m3.mjs`（已更新为对话框插入）全绿；M1/M2 `verify-ui.mjs` 真实 exe 全绿 |
+| 截图 | `%TEMP%\mwb-verify-mermaid\`（01-dialog.png / 02-inserted.png / 03-edited.png / report.json） |
+
+### 13.4 已知边界
+
+- 对话框首次预览需懒加载 mermaid bundle（~3–5s，显示「正在渲染预览…」）；之后缓存命中毫秒级。
+- 对话框自定义尺寸只提供百分比（契约 §2.3）；手写 `NNNpx` 指令可正常渲染，编辑时不会被悄悄改写。
+- 插入的 `%% mwb-size` 指令行会保留在 Markdown 中（mermaid 注释），便于下次编辑。
+- 编辑判定 ±1 行（光标在 fence 上下相邻行也可进入编辑）；未闭合 fence / 其它语言 fence 不命中，按新建处理。

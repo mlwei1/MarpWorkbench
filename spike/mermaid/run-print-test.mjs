@@ -104,13 +104,13 @@ if (print.pdfExists) {
   let im
   while ((im = imgRe.exec(rawPdf))) embedded.push({ w: +im[1], h: +im[2] })
   report.embeddedRasterImages = embedded
-  const MAX_EMBED_AREA = 1_200_000
+  const MAX_EMBED_AREA = 2_000_000
   check(
-    '图主体为矢量（每页路径≥10 + 文本可提取）；仅节点阴影为 filter 光栅图（≤16 张、单张≤1.2MP）',
+    '图主体为矢量（每页路径≥10 + 文本可提取）；仅节点阴影为 filter 光栅图（≤16 张、单张≤2MP）',
     report.pages.every((p) => p.vectorOps.constructPath >= 10 && p.textItems >= 3) && embedded.length <= 16 && embedded.every((x) => x.w * x.h <= MAX_EMBED_AREA),
     JSON.stringify({ pages: report.pages.map((p) => ({ p: p.page, path: p.vectorOps.constructPath, img: p.vectorOps.images, text: p.textItems })), embeddedCount: embedded.length, embedded: embedded.slice(0, 6) }),
   )
-  check('无整页位图化（每张嵌入位图宽高均 < 页面像素 1280×720）', embedded.every((x) => x.w < 1280 && x.h < 720), JSON.stringify(embedded))
+  check('无整页位图化（单张嵌入位图 < 2×页面像素 2560×1440；节点阴影按设备缩放约 4x）', embedded.every((x) => x.w < 2560 && x.h < 1440), JSON.stringify(embedded))
   check('mermaid 图文本可提取（flowchart 中文标签）', /开始/.test(textDump[0] || '') && /检查/.test(textDump[0] || '') && /发布上线/.test(textDump[0] || ''), (textDump[0] || '').slice(0, 200))
   check('sequence 图文本可提取（中文参与者/消息）', /用户/.test(textDump[1] || '') && /登录请求/.test(textDump[1] || ''), (textDump[1] || '').slice(0, 200))
   check('错误页保留原始代码 + 中文错误提示（文本可提取）', /graph LR/.test(textDump[2] || '') && /图表渲染失败/.test(textDump[2] || ''), (textDump[2] || '').slice(0, 200))
@@ -119,6 +119,62 @@ if (print.pdfExists) {
   await pdf.destroy()
 }
 report.textDump = textDump.map((t) => t.slice(0, 300))
+
+// 6) M5 尺寸 deck 打印校验（契约 §1.4：xl 图不溢出 16:9）
+//    size deck 由 run-size-test.mjs 产出（9 页：auto/s/m/l/xl/70%/900px/非法指令/超 5 行指令）
+report.sizeDeck = null
+const SIZE_PAGES = 9
+const XL_PAGE = 5
+const sizeArtifactsPath = path.join(OUT, 'size-artifacts.json')
+check('存在 out/size-artifacts.json（需先运行 run-size-test.mjs）', fs.existsSync(sizeArtifactsPath), path.relative(REPO, sizeArtifactsPath))
+if (fs.existsSync(sizeArtifactsPath)) {
+  const sizeArtifacts = JSON.parse(fs.readFileSync(sizeArtifactsPath, 'utf8'))
+  check('尺寸 deck HTML 含 9 个 .mwb-mermaid', (sizeArtifacts.renderedHtml.match(/class="mwb-mermaid"/g) || []).length === SIZE_PAGES)
+  check('尺寸 deck HTML 中 xl 图 max-height:640px', /max-height:640px/.test(sizeArtifacts.renderedHtml))
+  const sizePrintHtml = buildPrintPage({ html: sizeArtifacts.renderedHtml, css: sizeArtifacts.css, title: 'mermaid 尺寸打印测试', readyMarker: true })
+  const sizePrintPath = path.join(OUT, 'print-size.html')
+  fs.writeFileSync(sizePrintPath, sizePrintHtml)
+  const sizePdfPath = path.join(OUT, 'print-size.pdf')
+  const sizeServer = await startServer(0)
+  const sizePrint = await runChromePrint(`${sizeServer.url}/out/print-size.html`, sizePdfPath)
+  sizeServer.server.close()
+  const sizeReport = { pdfPath: path.relative(REPO, sizePdfPath), bytes: 0, pageCount: 0, pageSizes: [], printMs: sizePrint.pdfReadyMs ?? sizePrint.exitMs, pages: [], xlPage: null }
+  check('尺寸 deck：Chrome --print-to-pdf 生成 PDF', sizePrint.pdfExists && fs.statSync(sizePdfPath).size > 10 * 1024, JSON.stringify({ code: sizePrint.code, stderr: sizePrint.stderrTail }))
+  if (sizePrint.pdfExists) {
+    const sizeBuf = fs.readFileSync(sizePdfPath)
+    sizeReport.bytes = sizeBuf.length
+    const sizePdf = await pdfjs.getDocument({ data: new Uint8Array(sizeBuf), useWorkerFetch: false, isEvalSupported: false, useSystemFonts: true, disableFontFace: true, standardFontDataUrl }).promise
+    sizeReport.pageCount = sizePdf.numPages
+    check('尺寸 deck：PDF 页数 = 9', sizePdf.numPages === SIZE_PAGES, sizePdf.numPages)
+    let allTextInPage = true
+    for (let i = 1; i <= sizePdf.numPages; i++) {
+      const page = await sizePdf.getPage(i)
+      const [, , W, H] = page.view
+      sizeReport.pageSizes.push({ w: +W.toFixed(2), h: +H.toFixed(2) })
+      const tc = await page.getTextContent()
+      const text = tc.items.map((it) => ('str' in it ? it.str : '')).join('')
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      let textItems = 0
+      for (const it of tc.items) {
+        if (!('transform' in it)) continue
+        if ('str' in it && it.str.trim()) textItems++
+        minX = Math.min(minX, it.transform[4]); maxX = Math.max(maxX, it.transform[4] + it.width)
+        minY = Math.min(minY, it.transform[5]); maxY = Math.max(maxY, it.transform[5] + it.height)
+      }
+      const textInPage = !Number.isFinite(minX) || (minX >= -2 && maxX <= W + 2 && minY >= -2 && maxY <= H + 2)
+      if (!textInPage) allTextInPage = false
+      const entry = { page: i, pagePt: [+W.toFixed(2), +H.toFixed(2)], textItems, textInPage, textSample: text.slice(0, 100) }
+      sizeReport.pages.push(entry)
+      if (i === XL_PAGE) sizeReport.xlPage = entry
+    }
+    check('尺寸 deck：每页尺寸 = 960×540pt', sizeReport.pageSizes.every((s) => Math.abs(s.w - 960) < 0.6 && Math.abs(s.h - 540) < 0.6), JSON.stringify(sizeReport.pageSizes))
+    check('尺寸 deck：所有文本坐标在页内（xl 页无裁切/溢出）', allTextInPage, JSON.stringify(sizeReport.pages.filter((p) => !p.textInPage)))
+    check('尺寸 deck：xl 页（第 5 页）图文本可提取（开始/需求/上线）', !!sizeReport.xlPage && /开始/.test(sizeReport.xlPage.textSample) && /上线/.test(sizeReport.xlPage.textSample), JSON.stringify(sizeReport.xlPage))
+    await sizePdf.destroy()
+  }
+  sizeReport.printHtml = path.relative(REPO, sizePrintPath)
+  report.sizeDeck = sizeReport
+}
 
 // 5) 打印页 Chrome 截图（目检 PDF 对应的矢量源；PDF 内部矢量性由上面操作符判定）
 report.pageShots = []
@@ -145,6 +201,49 @@ report.pageShots = []
       await page.screenshot({ path: file, clip: { x: r.x, y: r.y, width: r.w, height: r.h } })
       report.pageShots.push(path.relative(REPO, file))
     }
+
+    // 尺寸 deck（M5）：打印页里每张图（含 xl 640px 竖向图）是否都在 16:9 页面内 + 截图
+    report.sizePrintShots = []
+    report.sizePrintGeometry = []
+    const sizePage = await browser.newPage()
+    await sizePage.setViewport({ width: 1280, height: 720 })
+    await sizePage.goto(`${server.url}/out/print-size.html`, { waitUntil: 'load', timeout: 120000 })
+    await sizePage.waitForFunction('window.__MWB_READY__ === true', { timeout: 60000 }).catch(() => {})
+    const sizeGeo = await sizePage.evaluate(() =>
+      Array.prototype.map.call(document.querySelectorAll('svg[data-marpit-svg]'), (slideSvg, i) => {
+        const sec = slideSvg.querySelector('foreignObject > section')
+        if (!sec) return { page: i + 1, hasSvg: false }
+        const sr = sec.getBoundingClientRect()
+        const m = sec.querySelector('.mwb-mermaid svg')
+        if (!m) return { page: i + 1, hasSvg: false, sectionRect: [Math.round(sr.width), Math.round(sr.height)] }
+        const r = m.getBoundingClientRect()
+        return {
+          page: i + 1,
+          hasSvg: true,
+          renderedWidth: Math.round(r.width),
+          renderedHeight: Math.round(r.height),
+          svgBottom: +r.bottom.toFixed(1),
+          sectionBottom: +sr.bottom.toFixed(1),
+          bottomPadding: +(sr.bottom - r.bottom).toFixed(1),
+          fitsSection: r.top >= sr.top - 1 && r.bottom <= sr.bottom + 1 && r.left >= sr.left - 1 && r.right <= sr.right + 1,
+        }
+      }),
+    )
+    report.sizePrintGeometry = sizeGeo
+    check('尺寸 deck 打印页：9 页都有 mermaid svg', sizeGeo.length === 9 && sizeGeo.every((g) => g.hasSvg), JSON.stringify(sizeGeo.map((g) => `${g.page}:${g.hasSvg}`)))
+    check('尺寸 deck 打印页：所有图（含 xl 640px）都在 16:9 页面内', sizeGeo.length === 9 && sizeGeo.every((g) => g.fitsSection), JSON.stringify(sizeGeo.filter((g) => !g.fitsSection)))
+    const sizeRects = await sizePage.evaluate(() =>
+      Array.prototype.map.call(document.querySelectorAll('svg[data-marpit-svg]'), (s, i) => {
+        const r = s.getBoundingClientRect()
+        return { index: i + 1, x: r.left + window.scrollX, y: r.top + window.scrollY, w: r.width, h: r.height }
+      }),
+    )
+    for (const r of sizeRects) {
+      const file = path.join(SHOTS, `size-print-page-${r.index}.png`)
+      await sizePage.screenshot({ path: file, clip: { x: r.x, y: r.y, width: r.w, height: r.h } })
+      report.sizePrintShots.push(path.relative(REPO, file))
+    }
+    await sizePage.close()
     await page.close()
     server.server.close()
   } catch (err) {
@@ -166,6 +265,12 @@ console.log(`checks: ${checks.filter((c) => c.ok).length}/${checks.length}`)
 for (const c of checks) if (!c.ok) console.log(`  ✗ ${c.name} => ${c.detail}`)
 for (const p of report.pages) console.log(`  p${p.page}: ops=${p.vectorOps.ops} path=${p.vectorOps.constructPath} fill=${p.vectorOps.fill} stroke=${p.vectorOps.stroke} images=${p.vectorOps.images} text=${p.textItems} items, sample="${(p.textSample || '').replace(/\n/g, ' ')}"`)
 console.log(`page shots: ${report.pageShots.join(', ')}`)
+if (report.sizeDeck) {
+  console.log(`size deck PDF: ${report.sizeDeck.pdfPath} (${(report.sizeDeck.bytes / 1024).toFixed(1)} KB) printMs=${report.sizeDeck.printMs} pages=${report.sizeDeck.pageCount}`)
+  const xlGeo = (report.sizePrintGeometry || []).find((g) => g.page === 5)
+  if (xlGeo) console.log(`size deck xl(第5页): rendered=${xlGeo.renderedWidth}x${xlGeo.renderedHeight} bottomPadding=${xlGeo.bottomPadding} fitsSection=${xlGeo.fitsSection}`)
+  console.log(`size print shots: ${(report.sizePrintShots || []).join(', ')}`)
+}
 console.log(`report: ${path.relative(REPO, reportPath)}`)
 console.log(report.ok ? 'RESULT: PASS' : 'RESULT: FAIL')
 if (!report.ok) process.exitCode = 1
