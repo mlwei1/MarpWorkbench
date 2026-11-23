@@ -402,7 +402,7 @@ doRender()（async，token 防竞态）
 
 | 文件 | 说明 |
 | --- | --- |
-| `web/src/insert/MermaidInsertDialog.vue`（新建） | 三栏图表对话框：10 类示例卡 / 可编辑代码 / 实时预览 + 尺寸；插入与编辑两用 |
+| `web/src/insert/MermaidInsertDialog.vue`（新建） | 三栏图表对话框：19 类示例卡 / 可编辑代码 / 实时预览 + 尺寸；插入与编辑两用 |
 | `web/src/insert/mermaidBlock.ts`（新建） | `findMermaidBlockAtLine(md, line, tolerance=1)` 精确定位 ```mermaid / ```mmd 块（跳未闭合/其它语言 fence）；尺寸指令解析/序列化/片段构建（`normalizeMermaidSize`/`parseMermaidSizeDirective`/`applyMermaidSizeDirective`/`buildMermaidSnippet`） |
 | `web/src/editor/types.ts` | `EditorApi` 增加 `replaceRange(from, to, text, cursorLine?)` |
 | `web/src/editor/CodeMirrorEditor.vue` | `replaceRange` 用一次 `view.dispatch({changes, selection})` 实现（保留撤销历史），可选定位到目标行 |
@@ -412,7 +412,7 @@ doRender()（async，token 防竞态）
 
 ### 13.2 对话框要点
 
-- **10 类中文示例**（全部真实可渲染，含缩进/箭头）：流程图 `graph LR`、时序图 `sequenceDiagram`、类图 `classDiagram`（中文用 `note`）、状态图 `stateDiagram-v2`（`state "待处理" as Pending`）、实体关系图 `erDiagram`（中文用属性注释/关系标签）、甘特图 `gantt`、饼图 `pie`、思维导图 `mindmap`、时间线 `timeline`、用户旅程 `journey`。
+- **19 类中文示例**（全部真实可渲染，含缩进/箭头）：流程图 `graph LR`、时序图 `sequenceDiagram`、类图 `classDiagram`（中文用 `note`）、状态图 `stateDiagram-v2`（`state "待处理" as Pending`）、实体关系图 `erDiagram`（中文用属性注释/关系标签）、甘特图 `gantt`、饼图 `pie`、思维导图 `mindmap`、时间线 `timeline`、用户旅程 `journey`。
 - 点击类型卡覆盖代码（不弹确认）；中间 textarea 可直接改；`400ms` 防抖调 mermaid 模块 `renderMermaidPreview(code)` 实时预览，自增 token 防竞态；错误显示中文「图表渲染失败 + 详情」。
 - 尺寸下拉 `getMermaidSizeOptions()`：自动（推荐）/小/中/大/超大/自定义百分比（1–100）；选非 auto 时把 `%% mwb-size: <value>` 写入代码首行（mermaid 当注释忽略）。**每次重写前先删除代码前 5 行内所有旧指令，保证永不重复**；来自外部的 `px` 自定义指令在用户未改尺寸前原样保留（不静默改成 %）。
 - 编辑模式：标题「编辑 Mermaid 图表」、按钮「保存修改」，预填源码 + 尺寸（`parseMermaidSizeDirective`），保存由 `replaceRange` 原位替换（块数不变）。

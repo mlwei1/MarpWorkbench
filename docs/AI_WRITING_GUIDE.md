@@ -148,7 +148,9 @@ graph LR
 ```
 ````
 
-- 支持的图类型：`graph`/`flowchart`、`sequenceDiagram`、`classDiagram`、`stateDiagram-v2`、`erDiagram`、`gantt`、`pie`、`mindmap`、`timeline`、`journey`。
+- 支持的图类型：`graph`/`flowchart`、`sequenceDiagram`、`classDiagram`、`stateDiagram-v2`、`erDiagram`、`gantt`、`pie`、`mindmap`、`timeline`、`journey`、`quadrantChart`、`xychart-beta`、`sankey-beta`、`radar-beta`、`treemap-beta`、`block-beta`、`gitGraph`、`C4Context`、`kanban`。
+- 常用 PPT 图表优先：象限图（优先级/定位）、柱状/折线图（趋势）、桑基图（流量/转化）、雷达图（能力对比）、树图（构成）、看板（项目状态）；技术分享可用 Git 图、C4 上下文图、块图。
+- 注意：`sankey-beta` 的节点名暂只支持英文（mermaid v12 限制），`xychart-beta` 的中文轴标签要用引号。
 - 可选尺寸指令（代码块第一行）：`%% mwb-size: s | m | l | xl | 70% | 900px`；不写则默认铺满内容宽度。
 - 图不要太大：流程图 ≤ 12 个节点；时序图 ≤ 5 个参与者、≤ 12 条消息；甘特图 ≤ 8 行任务。
 - 节点文字用中文短词（≤ 8 字）；不要在图里塞长句。

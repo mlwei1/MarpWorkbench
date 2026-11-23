@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <b>v0.3.0 新功能：Mermaid 图表尺寸选项 + 10 类示例库 + 图表原位编辑</b>；同时提供 <a href="docs/AI_WRITING_GUIDE.md">AI 写作规范</a> 与 <a href="docs/AI_PROMPT.md">Prompt 模板</a>，让 ChatGPT / Claude / Cursor 直接产出可导入的 Marp Markdown。
+  <b>v0.3.1 更新：Mermaid 示例扩展到 19 类（新增象限图/柱状折线/桑基/雷达/树图/块图/Git/C4/看板）</b>；同时提供 <a href="docs/AI_WRITING_GUIDE.md">AI 写作规范</a> 与 <a href="docs/AI_PROMPT.md">Prompt 模板</a>，让 ChatGPT / Claude / Cursor 直接产出可导入的 Marp Markdown。
 </p>
 
 <p align="center">
@@ -29,11 +29,11 @@
 <p align="center">
   <b>⬇️ <a href="https://github.com/mlwei1/MarpWorkbench/releases/latest">下载最新版 / Download latest release</a></b>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/MarpWorkbench-v0.3.0-win-x64.exe">单文件 exe（12.4MB）</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.exe">单文件 exe（12.4MB）</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/MarpWorkbench-v0.3.0-win-x64.zip">zip</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/MarpWorkbench-v0.3.1-win-x64.zip">zip</a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.0/SHA256SUMS.txt">SHA256</a>
+  <a href="https://github.com/mlwei1/MarpWorkbench/releases/download/v0.3.1/SHA256SUMS.txt">SHA256</a>
 </p>
 
 > **使用要求**：Windows 10/11（64 位）；导出需要系统自带的 Edge（或 Chrome）；无需 Node/Rust，离线可用。首次运行如遇 SmartScreen，点「更多信息 → 仍要运行」。
@@ -59,7 +59,7 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 | 图片 | 相对路径、粘图、丢图 | 粘贴/拖拽自动入库；背景图/透明度/左右占比可视化；**光标图片上点按钮 = 原位编辑** |
 | 表格 | 手写 GFM | 网格选行列 + 单元格编辑 + 对齐 |
 | 属性 | 手写 front-matter | 右侧**属性面板**点选（尺寸/页码/页眉/页脚/class/背景图） |
-| 图表 | 装插件、配 mermaid | 工具栏「◈ 图表」**10 类示例 + 实时预览 + 尺寸选项 + 光标编辑已有图**；` ```mermaid ` 也可直接写 |
+| 图表 | 装插件、配 mermaid | 工具栏「◈ 图表」**19 类示例 + 实时预览 + 尺寸选项 + 光标编辑已有图**；` ```mermaid ` 也可直接写 |
 | 分发 | 对方还得配环境 | **单文件 exe**，双击即用，离线运行 |
 
 核心原则：**产出的永远是标准 Marp Markdown**（随时能拷回 VS Code / `marp-cli`），但把「格式决策层」全部做成了可以点的 GUI。
@@ -102,11 +102,11 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
     <td align="center"><sub>导出的 .pptx 在 PowerPoint / LibreOffice 打开后仍保持 Marp 版式</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/images/mermaid-dialog.jpg" alt="Mermaid 图表对话框：10 类示例 + 实时预览 + 尺寸" /></td>
+    <td><img src="docs/images/mermaid-dialog.jpg" alt="Mermaid 图表对话框：19 类示例 + 实时预览 + 尺寸" /></td>
     <td><img src="docs/images/mermaid-size.jpg" alt="Mermaid 图默认放大，可用 %% mwb-size 控制尺寸" /></td>
   </tr>
   <tr>
-    <td align="center"><sub>「◈ 图表」对话框：10 类图表示例 + 可直接改的代码 + 实时预览 + 尺寸选项</sub></td>
+    <td align="center"><sub>「◈ 图表」对话框：19 类图表示例 + 可直接改的代码 + 实时预览 + 尺寸选项</sub></td>
     <td align="center"><sub>小图默认放大到铺满内容宽度；已有图表点一下即可原位改尺寸/内容</sub></td>
   </tr>
 </table>
@@ -130,8 +130,8 @@ Marp 很好用，但在 VS Code 里用起来总差一口气：
 到 [**Releases**](https://github.com/mlwei1/MarpWorkbench/releases/latest) 下载 `MarpWorkbench-*.exe`（单文件，约 12.4MB），双击即用：
 
 ```
-MarpWorkbench-v0.3.0-win-x64.exe     # 单文件主程序
-MarpWorkbench-v0.3.0-win-x64.zip     # exe + 中英文 README + LICENSE
+MarpWorkbench-v0.3.1-win-x64.exe     # 单文件主程序
+MarpWorkbench-v0.3.1-win-x64.zip     # exe + 中英文 README + LICENSE
 SHA256SUMS.txt                        # 校验值
 ```
 
@@ -158,7 +158,7 @@ pnpm run build          # 依次构建 mermaid 包 → marp 渲染包 → 前端
 1. 首页「＋ 新建空白 / 示例演示」或导入 `.md`
 2. 左边写 Markdown，右边实时预览（滚轮/光标联动）
 3. 右侧「属性」点选主题 / 尺寸 / 页码 / 页眉页脚 / class / 背景图
-4. 需要图表：工具栏「◈ 图表」→ 选 10 类示例之一、改代码、选尺寸（自动/小/中/大/超大/自定义）→ 插入；光标在已有图表上点同一按钮 = **原位编辑**
+4. 需要图表：工具栏「◈ 图表」→ 选 19 类示例之一、改代码、选尺寸（自动/小/中/大/超大/自定义）→ 插入；光标在已有图表上点同一按钮 = **原位编辑**
 5. 顶部「导出」→ **PPTX（图片版）/ PPTX 可编辑（Beta）/ PDF / HTML**；预览工具栏「▶ 全屏播放」演示
 6. 用 AI 写稿：把 [AI Prompt 模板](docs/AI_PROMPT.md) 给任意 AI → 保存 `.md` → 首页导入 → 微调/导出（详见 [AI 写作规范](docs/AI_WRITING_GUIDE.md)）
 
@@ -200,7 +200,7 @@ AI（ChatGPT / Claude / DeepSeek / Cursor…）现在就能直接产出本应用
 | **属性** | 主题、尺寸（16:9 / 4:3）、页码（全局 + 本页三态）、页眉/页脚（全局 + 单页覆盖）、全局/本页 class、本页背景图（适配 + 透明度）；只改目标字段，未知字段保留 |
 | **图片** | 粘贴/拖拽自动入库；插入器：普通图宽度 / 背景图整页·左·右占比 20–70% / opacity / blur / grayscale / cover·contain·fit，**实时预览**；**光标在已有图片上点图片按钮 = 原位编辑** |
 | **表格** | 12×12 网格选行列、单元格直接编辑、表头/首列加粗/对齐、GFM 预览 |
-| **图表** | 「◈ 图表」对话框：**10 类示例**（流程图/时序图/类图/状态图/ER/甘特/饼图/思维导图/时间线/用户旅程）+ 可直接编辑的代码 + **实时预览** + **尺寸选项**（自动/小/中/大/超大/自定义 %，写入 `%% mwb-size`）；小图默认放大铺满内容宽度；光标在已有图表上打开 = **原位编辑**；也可直接写 ` ```mermaid `，离线懒加载、错误块降级 |
+| **图表** | 「◈ 图表」对话框：**19 类示例**（流程图/时序图/象限图/柱状折线/桑基图/雷达图/树图/甘特图/饼图/思维导图/时间线/用户旅程/类图/状态图/ER/块图/Git 图/C4 上下文/看板）+ 可直接编辑的代码 + **实时预览** + **尺寸选项**（自动/小/中/大/超大/自定义 %，写入 `%% mwb-size`）；小图默认放大铺满内容宽度；光标在已有图表上打开 = **原位编辑**；也可直接写 ` ```mermaid `，离线懒加载、错误块降级 |
 | **老文档兼容** | 网络图片经本地代理显示 + 一键下载到 `assets/` 并重写 Markdown；导出自动内联 |
 | **导出** | PPTX（图片版 2x，16:9，备注写入 notes）、**PPTX 可编辑（Beta：文字/列表/代码/表格为真正的 PowerPoint 对象，背景为高清底图，备注保留）**、PDF（矢量 960×540pt，中文可提取）、HTML 单文件（离线可播） |
 | **演示** | 全屏播放（`← → ↑ ↓` / Space / PageUp/Down / Home/End / Esc） |
@@ -264,7 +264,7 @@ pnpm run verify:m2       # 属性面板 / 大纲缩略图 / 图片表格插入�
 pnpm run verify:m3       # Mermaid / 网络图片本地化 / 图片原位编辑 / 含图 PDF 21 项
 pnpm run verify:m3fix    # 打字时预览不跳动 + 全屏播放方向键翻页 14 项
 pnpm run verify:editable # PPTX 可编辑：文字/表格/背景/备注 + python-pptx 校验 23 项
-pnpm run verify:mermaid-ui # Mermaid 10 类示例/尺寸/插入/原位编辑 17 项
+pnpm run verify:mermaid-ui # Mermaid 19 类示例/尺寸/插入/原位编辑 17 项
 ```
 
 最近一轮结果：**全部通过**（12/12 · 13/13 · 26/26 · 21/21 · 14/14 · 23/23 · 17/17）；PPTX 可编辑导出由 python-pptx 校验（13 页、13.333×7.5in、13 页背景、1 个原生表格、中文文本/备注可提取）；Mermaid 默认宽度 1120/1280（88%），10 类示例均可渲染；零外网请求、零 JavaScript 错误。
@@ -278,7 +278,7 @@ pnpm run verify:mermaid-ui # Mermaid 10 类示例/尺寸/插入/原位编辑 17 
 - [x] M3 增强：Mermaid 图表 / 老 md 网络图片兼容 / 图片原位编辑
 - [x] M3.1 体验：预览滚动稳定 + 全屏播放
 - [x] M4 可编辑导出：PPTX 可编辑（Beta）——文字/列表/代码/表格为 PowerPoint 原生对象，背景保真，备注保留
-- [x] M5.0 Mermaid 体验：尺寸选项（`%% mwb-size`）+ 10 类示例库 + 图表原位编辑；AI 写作规范/Prompt 文档
+- [x] M5.0 Mermaid 体验：尺寸选项（`%% mwb-size`）+ 19 类示例库 + 图表原位编辑；AI 写作规范/Prompt 文档
 - [ ] M5.1 AI 集成：本地 HTTP/CLI → MCP Server（计划见 [docs/M5_PLAN.md](docs/M5_PLAN.md)）
 - [ ] M4 发布：新手模板 / 幻灯片增删拖拽 / 导出后打开文件夹 / 打包与 GitHub Release
 

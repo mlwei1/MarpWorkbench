@@ -2,7 +2,7 @@
 /**
  * Mermaid 图表插入 / 编辑对话框（M5.0，契约 docs/UI_CONTRACT_M5_MERMAID.md §2）
  *
- * - 三类布局：左侧 10 类示例卡 / 中间可编辑代码 / 右侧实时预览 + 尺寸下拉
+ * - 三类布局：左侧 19 类示例卡 / 中间可编辑代码 / 右侧实时预览 + 尺寸下拉
  * - 实时预览：400ms 防抖 + token 防竞态，调用 mermaid 模块的 renderMermaidPreview（失败显示中文错误）
  * - 尺寸：auto/s/m/l/xl/custom%，非 auto 时在代码块首行写 `%% mwb-size: <value>`（自动去掉旧指令，绝不重复）
  * - 编辑模式（initialBlock）：标题「编辑 Mermaid 图表」/ 按钮「保存修改」，由父组件原位替换
@@ -35,7 +35,7 @@ const emit = defineEmits<{
   close: []
 }>()
 
-// ---------------- 示例库（10 类，全部真实可渲染；中文示例内容方便直接改） ----------------
+// ---------------- 示例库（19 类，全部真实可渲染；中文示例内容方便直接改） ----------------
 interface MermaidExample {
   key: string
   name: string
@@ -174,6 +174,113 @@ const EXAMPLES: MermaidExample[] = [
     加入购物车: 5: 用户
     提交订单: 2: 用户`,
   },
+  {
+    key: 'quadrant',
+    name: '象限图',
+    icon: '🎯',
+    code: `quadrantChart
+  title 需求优先级
+  x-axis 低影响 --> 高影响
+  y-axis 低成本 --> 高成本
+  quadrant-1 优先做
+  quadrant-2 计划做
+  quadrant-3 稍后做
+  quadrant-4 避免做
+  需求A: [0.8, 0.3]
+  需求B: [0.6, 0.7]
+  需求C: [0.3, 0.4]`,
+  },
+  {
+    key: 'xychart',
+    name: '柱状/折线图',
+    icon: '📊',
+    code: `xychart-beta
+  title "月度收入"
+  x-axis ["一月", "二月", "三月", "四月", "五月"]
+  y-axis "万元" 0 --> 100
+  bar [20, 45, 38, 60, 72]
+  line [20, 45, 38, 60, 72]`,
+  },
+  {
+    key: 'sankey',
+    name: '桑基图',
+    icon: '🌊',
+    // mermaid v12 的 sankey 解析器暂不支持中文节点名，示例用英文节点、中文标题由页面标题承担
+    code: `sankey-beta
+Web,Home,100
+Web,Leave,20
+Home,Signup,60
+Home,Browse,40
+Signup,Paid,15`,
+  },
+  {
+    key: 'radar',
+    name: '雷达图',
+    icon: '🕸️',
+    code: `radar-beta
+  title 方案能力评估
+  axis a["完整度"], b["成本"], c["风险"]
+  curve one["方案A"]{80, 60, 40}
+  curve two["方案B"]{60, 80, 50}`,
+  },
+  {
+    key: 'treemap',
+    name: '树图',
+    icon: '🗂️',
+    code: `treemap-beta
+  "产品收入"
+    "核心产品": 60
+    "增值服务": 25
+    "其他": 15`,
+  },
+  {
+    key: 'block',
+    name: '块图',
+    icon: '🧱',
+    code: `block-beta
+  columns 3
+  前端["前端"] 服务["本地服务"] 浏览器["浏览器"]
+  前端 --> 服务`,
+  },
+  {
+    key: 'git',
+    name: 'Git 图',
+    icon: '🌿',
+    code: `gitGraph
+  commit id: "初始化"
+  branch feature
+  checkout feature
+  commit id: "功能开发"
+  commit id: "测试"
+  checkout main
+  merge feature
+  commit id: "发布"`,
+  },
+  {
+    key: 'c4',
+    name: 'C4 上下文图',
+    icon: '🏛️',
+    code: `C4Context
+  title 系统上下文
+  Person(user, "用户", "使用产品")
+  System(app, "MarpWorkbench", "幻灯片工作台")
+  System_Ext(browser, "浏览器", "渲染界面")
+  Rel(user, app, "使用")
+  Rel(app, browser, "打开")`,
+  },
+  {
+    key: 'kanban',
+    name: '看板',
+    icon: '🗒️',
+    code: `kanban
+  待办
+    [需求评审]
+    [设计稿]
+  进行中
+    [开发]
+  已完成
+    [立项]`,
+  },
 ]
 
 const editing = computed(() => !!props.initialBlock)
@@ -187,6 +294,15 @@ function detectType(code: string): string {
     .map((l) => l.trim())
     .find((l) => l && !l.startsWith('%%'))
   if (!first) return ''
+  if (/^block-beta/i.test(first)) return 'block'
+  if (/^quadrantChart/i.test(first)) return 'quadrant'
+  if (/^xychart-beta/i.test(first)) return 'xychart'
+  if (/^sankey-beta/i.test(first)) return 'sankey'
+  if (/^radar-beta/i.test(first)) return 'radar'
+  if (/^treemap-beta/i.test(first)) return 'treemap'
+  if (/^gitGraph/i.test(first)) return 'git'
+  if (/^C4Context/i.test(first)) return 'c4'
+  if (/^kanban/i.test(first)) return 'kanban'
   if (/^graph\b|^flowchart\b/i.test(first)) return 'flowchart'
   if (/^sequenceDiagram/i.test(first)) return 'sequence'
   if (/^classDiagram/i.test(first)) return 'class'
@@ -405,7 +521,7 @@ onBeforeUnmount(() => {
 
       <div class="mermaid-body">
         <aside class="mermaid-types">
-          <div class="block-title">图表类型</div>
+          <div class="block-title">图表类型 <span class="type-count">共 19 类 · 可滚动</span></div>
           <div class="type-grid">
             <button
               v-for="ex in EXAMPLES"

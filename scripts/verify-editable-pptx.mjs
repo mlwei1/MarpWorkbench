@@ -246,7 +246,19 @@ try {
   })
   await page.goto(`${base}/edit/${encodeURIComponent(id)}?token=${token}`, { waitUntil: 'networkidle2', timeout: 60000 })
   await page.waitForFunction(() => document.querySelectorAll('iframe.preview-frame').length > 0, { timeout: 30000 })
-  await sleep(3500)
+  // 首次 mermaid 需懒加载 5MB bundle（3–5s，机器忙时更久）；等实际渲染出 SVG 再断言
+  await page
+    .waitForFunction(
+      () => {
+        const f = document.querySelector('iframe.preview-frame')
+        const d = f?.contentDocument
+        if (!d) return false
+        return d.querySelectorAll('.mwb-mermaid svg').length >= 1 && d.querySelectorAll('code.language-mermaid').length === 0
+      },
+      { timeout: 30000 },
+    )
+    .catch(() => {})
+  await sleep(400)
 
   // 回归：deck 里先出现 js 代码块、后面才是 mermaid 时，mermaid 也必须渲染
   // （M4 发现 hasMermaid 旧实现只看首个 code 块，本用例专门覆盖）

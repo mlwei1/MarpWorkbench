@@ -54,6 +54,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const TYPE_NAMES = {
   flowchart: '流程图',
   sequence: '时序图',
+  quadrant: '象限图',
+  xychart: '柱状/折线图',
+  sankey: '桑基图',
+  radar: '雷达图',
+  treemap: '树图',
   class: '类图',
   state: '状态图',
   er: '实体关系图',
@@ -62,6 +67,10 @@ const TYPE_NAMES = {
   mindmap: '思维导图',
   timeline: '时间线',
   journey: '用户旅程',
+  block: '块图',
+  git: 'Git 图',
+  c4: 'C4 上下文图',
+  kanban: '看板',
 }
 
 async function main() {
@@ -114,7 +123,7 @@ async function main() {
   })
   await page.waitForSelector('.mwb-mermaid-dialog', { timeout: 15000 })
   const cardCount = await page.$$eval('button.mwb-mermaid-type', (els) => els.length)
-  step('对话框打开 + 10 个类型卡', cardCount === 10, `cards=${cardCount}`)
+  step('对话框打开 + 19 个类型卡', cardCount === 19, `cards=${cardCount}`)
   step('标题为「插入 Mermaid 图表」', (await page.$eval('.mwb-mermaid-dialog .modal-head h2', (el) => el.textContent || '')).includes('插入 Mermaid 图表'))
 
   // 等首图预览（首次加载 mermaid bundle ~3-5s）
@@ -136,7 +145,7 @@ async function main() {
   await page.screenshot({ path: path.join(shotDir, '01-dialog.png') })
   report.screenshots.push(path.join(shotDir, '01-dialog.png'))
 
-  // ---------- 2. 10 类示例逐个渲染 ----------
+  // ---------- 2. 19 类示例逐个渲染 ----------
   for (const key of Object.keys(TYPE_NAMES)) {
     await page.click(`button.mwb-mermaid-type[data-type="${key}"]`)
     await sleep(120)

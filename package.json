@@ -1,6 +1,6 @@
 {
   "name": "marp-workbench",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "MarpWorkbench — 便携单文件 Marp 幻灯片工作台（本地服务 + 浏览器 UI）",
   "scripts": {

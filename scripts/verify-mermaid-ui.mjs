@@ -158,8 +158,28 @@ try {
   check('打开「◈ 图表」对话框', opened && !!d0, d0?.title)
   if (!d0) throw new Error('图表对话框未出现')
   await page.waitForSelector('.mwb-mermaid-preview svg', { timeout: 25000 }).catch(() => {})
-  const expectedTypes = ['flowchart', 'sequence', 'class', 'state', 'er', 'gantt', 'pie', 'mindmap', 'timeline', 'journey']
-  check('10 类示例卡齐全', !!d0 && expectedTypes.every((t) => d0.types.includes(t)), JSON.stringify(d0?.types))
+  const expectedTypes = [
+    'flowchart',
+    'sequence',
+    'quadrant',
+    'xychart',
+    'sankey',
+    'radar',
+    'treemap',
+    'class',
+    'state',
+    'er',
+    'gantt',
+    'pie',
+    'mindmap',
+    'timeline',
+    'journey',
+    'block',
+    'git',
+    'c4',
+    'kanban',
+  ]
+  check('19 类示例卡齐全', !!d0 && expectedTypes.every((t) => d0.types.includes(t)), JSON.stringify(d0?.types))
   await sleep(400)
   await page.screenshot({ path: join(shotDir, '01-dialog.png') })
 
@@ -188,7 +208,7 @@ try {
     typeResults.push({ t, codeLen: info?.code.length || 0, svg: info?.previewSvg || 0, error: info?.previewError || '' })
   }
   const badTypes = typeResults.filter((r) => r.codeLen < 20 || r.svg < 1 || r.error)
-  check('10 类示例均可渲染', badTypes.length === 0, badTypes.length ? JSON.stringify(badTypes.slice(0, 3)) : JSON.stringify(typeResults.map((r) => `${r.t}:${r.svg}svg/${r.codeLen}B`)))
+  check('19 类示例均可渲染', badTypes.length === 0, badTypes.length ? JSON.stringify(badTypes.slice(0, 3)) : JSON.stringify(typeResults.map((r) => `${r.t}:${r.svg}svg/${r.codeLen}B`)))
 
   // 选时序图 + xl，插入
   await page.evaluate(() => {

@@ -116,7 +116,7 @@ close: []
 - 标题：新建时「插入 Mermaid 图表」；编辑时「编辑 Mermaid 图表」，按钮「保存修改」。
 - 编辑模式：预填源码 + 尺寸；保存后由 EditView 原位替换原代码块（不新增块）。
 
-### 2.2 示例库（10 类，全部必须真实可渲染）
+### 2.2 示例库（19 类，全部必须真实可渲染）
 
 | key | 中文名 | 模板要点 |
 |---|---|---|
@@ -130,6 +130,15 @@ close: []
 | mindmap | 思维导图 | `mindmap` + 根/分支 |
 | timeline | 时间线 | `timeline` + 时间点 |
 | journey | 用户旅程 | `journey` + 步骤/评分 |
+| quadrant | 象限图 | `quadrantChart` + 2×2 矩阵（优先级/定位） |
+| xychart | 柱状/折线图 | `xychart-beta` + bar/line（轴标签可中文，需引号） |
+| sankey | 桑基图 | `sankey-beta` + 流量/转化（mermaid v12 节点名暂只支持英文） |
+| radar | 雷达图 | `radar-beta` + axis/curve（轴用带标签写法） |
+| treemap | 树图 | `treemap-beta` + 层级数值（占比构成） |
+| block | 块图 | `block-beta` + 列/块/连线（架构/流程） |
+| git | Git 图 | `gitGraph` + branch/checkout/merge（研发流程） |
+| c4 | C4 上下文图 | `C4Context` + Person/System/Rel（系统架构） |
+| kanban | 看板 | `kanban` + 列/卡片（项目状态） |
 
 模板用中文示例内容（方便直接改）；每张类型卡显示图标/名称，点击切换代码（覆盖当前代码，无需确认，但保留撤销？——不做复杂确认）。
 
@@ -174,7 +183,7 @@ export function findMermaidBlockAtLine(markdown: string, line1: number, toleranc
 
 脚本 `scripts/verify-mermaid-ui.mjs`（真实 exe + Chrome）：
 
-1. 新建 deck → 点「◈ 图表」→ 对话框出现，类型卡 ≥ 10，预览 SVG 出现。
+1. 新建 deck → 点「◈ 图表」→ 对话框出现，类型卡 ≥ 19，预览 SVG 出现。
 2. 点「时序图」→ 代码框含 `sequenceDiagram`，预览更新。
 3. 尺寸选「超大」→ 插入 → Markdown 含 ````mermaid`、`%% mwb-size: xl`、`sequenceDiagram`；预览 SVG style 的 `max-height:640px`。
 4. 光标放在该代码块内 → 再点「◈ 图表」→ 标题「编辑 Mermaid 图表」、代码预填；尺寸改「自定义 70%」→ 保存 → Markdown 中该块仍只有 1 个（原位替换），指令为 `%% mwb-size: 70%`，预览 SVG `max-width:70%`。
